@@ -1,6 +1,6 @@
 export default {
   background: '#ffffff', // Cream
-  primary: '#F57C00', // Ethnic orange
+  primary: '#01a6db', // Ethnic orange
   secondary: '#2F4F4F', // Dark green accent
   text: '#333333',
   textDark: '#ffffff',
