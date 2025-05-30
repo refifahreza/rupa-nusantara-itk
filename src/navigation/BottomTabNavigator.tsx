@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Platform, StyleSheet } from 'react-native';
+import { View, Platform, StyleSheet, Text } from 'react-native';
 import { BottomTabParamList } from './types';
 import Home from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
@@ -12,6 +12,14 @@ import Colors from '../constants/Colors';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
+// Tab descriptions
+const tabDescriptions = {
+  Home: 'Beranda',
+  Translate: 'Terjemahan',
+  EduCenter: 'Edukasi',
+  Profile: 'Profil',
+};
+
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
@@ -19,7 +27,7 @@ export default function BottomTabNavigator() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: '#8E8E93',
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         tabBarStyle: {
           position: 'absolute',
           bottom: 20,
@@ -28,9 +36,15 @@ export default function BottomTabNavigator() {
           elevation: 0,
           backgroundColor: '#FFFFFF',
           borderRadius: 30,
-          height: 60,
+          height: 80,
           ...styles.shadow,
           borderTopWidth: 0,
+        },
+        tabBarLabelPosition: 'below-icon',
+        tabBarLabelStyle: {
+          fontSize: 10,
+          marginTop: 0,
+          marginBottom: 6,
         },
       }}
     >
@@ -38,10 +52,14 @@ export default function BottomTabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
+          tabBarLabel: tabDescriptions.Home,
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons name="home" size={24} color={color} />
               {focused && <View style={styles.indicator} />}
+              <Text style={[styles.tabDescription, { color: focused ? Colors.primary : '#8E8E93' }]}>
+                Menu utama
+              </Text>
             </View>
           ),
         }}
@@ -50,10 +68,14 @@ export default function BottomTabNavigator() {
         name="Translate"
         component={TranslateScreen}
         options={{
+          tabBarLabel: tabDescriptions.Translate,
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons name="document-text" size={24} color={color} />
               {focused && <View style={styles.indicator} />}
+              <Text style={[styles.tabDescription, { color: focused ? Colors.primary : '#8E8E93' }]}>
+                Cari arti kata
+              </Text>
             </View>
           ),
         }}
@@ -62,10 +84,14 @@ export default function BottomTabNavigator() {
         name="EduCenter"
         component={EduCenterScreen}
         options={{
+          tabBarLabel: tabDescriptions.EduCenter,
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons name="language" size={24} color={color} />
               {focused && <View style={styles.indicator} />}
+              <Text style={[styles.tabDescription, { color: focused ? Colors.primary : '#8E8E93' }]}>
+                Materi belajar
+              </Text>
             </View>
           ),
         }}
@@ -74,10 +100,14 @@ export default function BottomTabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
+          tabBarLabel: tabDescriptions.Profile,
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons name="person" size={24} color={color} />
               {focused && <View style={styles.indicator} />}
+              <Text style={[styles.tabDescription, { color: focused ? Colors.primary : '#8E8E93' }]}>
+                Akun anda
+              </Text>
             </View>
           ),
         }}
@@ -104,10 +134,16 @@ const styles = StyleSheet.create({
   },
   indicator: {
     position: 'absolute',
-    bottom: 8,
+    bottom: 24,
     width: 25,
     height: 3,
     borderRadius: 3,
     backgroundColor: '#000000',
+  },
+  tabDescription: {
+    fontSize: 8,
+    marginTop: 2,
+    textAlign: 'center',
+    paddingHorizontal: 2,
   }
 }); 
