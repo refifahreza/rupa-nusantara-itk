@@ -15,7 +15,11 @@ import {
   TextInput,
   Modal,
   TouchableWithoutFeedback,
+  AppState,
+  AppStateStatus,
 } from "react-native";
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useIsFocused, useFocusEffect, useNavigation } from '@react-navigation/native';
 import Layout from "../components/layout/Layout";
 import Colors from "../constants/Colors";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -30,6 +34,14 @@ interface PhotoItem {
   caption?: string;
 }
 
+// Define Culinary item type
+interface CulinaryItem {
+  name: string;
+  image: any;
+  description: string;
+  origin?: string;
+}
+
 // Define Region type
 interface Region {
   id: string;
@@ -39,6 +51,7 @@ interface Region {
   population: string;
   location: string;
   culture: CultureItem[];
+  culinary: CulinaryItem[]; // Add culinary array
   photos: PhotoItem[];
   funFacts: string[];
 }
@@ -51,193 +64,140 @@ interface CultureItem {
 }
 
 // Load local images
-const bontangImage = require('../../assets/images/bontang.jpg');
-const iconImage = require('../../assets/icon.png');
-const splashImage = require('../../assets/splash-icon.png');
-const adaptiveIconImage = require('../../assets/adaptive-icon.png');
-const faviconImage = require('../../assets/favicon.png');
+const penajamPaserUtaraImage = require('../../assets/img-penajampaserutara/penajampaserutarahero.jpeg');
+const kutaiKartanegaraImage = require('../../assets/img-kutaikartanegara/Kutai-Kartanagarahero.jpeg');
+const mahakamHuluImage = require('../../assets/img-mahakamhulu/mahakamuluhero.jpeg');
+const kutaiBaratImage = require('../../assets/img-kutaibarat/kutaibarathero.jpeg');
+const defaultHeroImage = require('../../assets/img-berau/derawan.jpeg');
 
 // Function to get local image based on index (to reuse available images)
 const getLocalImage = (index: number): any => {
-  const images = [bontangImage, iconImage, splashImage, adaptiveIconImage, faviconImage];
+  const images = [
+    defaultHeroImage, 
+    require('../../assets/img-berau/derawan.jpeg'), 
+    require('../../assets/img-samarinda/tepianmahakam.jpeg'), 
+    require('../../assets/img-kutaikartanegara/pulaukumala.jpeg'), 
+    require('../../assets/img-kutaikartanegara/KedatonKutaiKartanegara.jpeg'),
+  ];
   return images[index % images.length];
+};
+
+// Function to get local image based on region id
+const getRegionThumbnail = (id: string): any => {
+  switch(id) {
+    case "1": return penajamPaserUtaraImage;
+    case "2": return kutaiKartanegaraImage;
+    case "3": return mahakamHuluImage;
+    case "4": return kutaiBaratImage;
+    default: return defaultHeroImage;
+  }
 };
 
 // Mock data for regions
 const regions: Region[] = [
   {
     id: "1",
-    name: "Kota Samarinda",
-    thumbnail: getLocalImage(0),
+    name: "Penajam Paser Utara",
+    thumbnail: penajamPaserUtaraImage,
     description:
-      "Samarinda adalah ibu kota provinsi Kalimantan Timur, Indonesia. Kota ini memiliki luas wilayah 718 km² dengan populasi sekitar 812.597 jiwa. Samarinda terletak di tepi Sungai Mahakam dan dikenal sebagai kota dengan berbagai pusat kebudayaan dan perdagangan.",
-    population: "812.597 jiwa (2019)",
-    location: "Terletak di tepi Sungai Mahakam",
+      "Penajam Paser Utara adalah kabupaten di Kalimantan Timur yang terletak di Teluk Balikpapan. Kabupaten ini memiliki luas wilayah sekitar 3.333 km² dengan berbagai kekayaan alam termasuk hutan, minyak, dan gas.",
+    population: "175.439 jiwa (2020)",
+    location: "Terletak di Teluk Balikpapan, Kalimantan Timur",
     culture: [
       {
-        name: "Upacara Adat Erau",
-        image: Platform.OS === 'web' ? getLocalImage(1) : getLocalImage(1),
-        description: "Upacara adat yang dilaksanakan sebagai ungkapan rasa syukur masyarakat Kutai. Biasanya diadakan setiap tahun dengan berbagai prosesi dan tarian tradisional."
+        name: "Upacara Adat Belian",
+        image: require('../../assets/img-penajampaserutara/upacaraadatbelian.jpeg'),
+        description: "Upacara adat penyembuhan yang dilakukan oleh suku Paser. Ritual ini dipimpin oleh seorang dukun atau Belian yang memiliki kemampuan berkomunikasi dengan roh leluhur."
       },
       {
-        name: "Tari Ronggeng Melayu",
-        image: Platform.OS === 'web' ? getLocalImage(2) : getLocalImage(2),
-        description: "Tarian tradisional yang menggambarkan kegembiraan masyarakat Melayu. Ditarikan dengan gerakan yang lemah gemulai diiringi musik tradisional Melayu."
+        name: "Tari Ronggeng Paser",
+        image: require('../../assets/img-penajampaserutara/TariRonggengPaser.jpeg'),
+        description: "Tarian tradisional yang menggambarkan kegembiraan masyarakat Paser. Ditarikan dengan gerakan yang energik diiringi musik tradisional."
       },
       {
         name: "Musik Tingkilan",
-        image: Platform.OS === 'web' ? getLocalImage(3) : getLocalImage(3),
+        image: require('../../assets/img-penajampaserutara/musiktingkilan.jpeg'),
         description: "Musik tradisional dari Kalimantan Timur yang dimainkan dengan alat musik petik bernama gambus dan kendang. Sering digunakan untuk mengiringi tarian dan upacara adat."
       },
       {
         name: "Kerajinan Anyaman Rotan",
-        image: Platform.OS === 'web' ? getLocalImage(4) : getLocalImage(4),
+        image: require('../../assets/img-penajampaserutara/kerajinananyamanrotan.jpeg'),
         description: "Kerajinan tangan khas Kalimantan yang terbuat dari rotan. Digunakan untuk membuat berbagai peralatan rumah tangga dan hiasan dengan teknik menganyam yang telah diwariskan turun-temurun."
       },
     ],
+    culinary: [],
     photos: [
       {
-        url: Platform.OS === 'web' ? getLocalImage(0) : getLocalImage(0),
+        url: require('../../assets/img-penajampaserutara/air-terjun-tembinus.webp'),
         type: "landscape",
-        caption: "Masjid Islamic Center Samarinda"
+        caption: "Air Terjun Tembinus"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(1) : getLocalImage(1),
+        url: require('../../assets/img-penajampaserutara/goa-besiang.webp'),
         type: "square",
-        caption: "Sungai Mahakam"
+        caption: "Goa Besiang"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(2) : getLocalImage(2),
+        url: require('../../assets/img-penajampaserutara/pulau-gusung.webp'),
         type: "portrait",
-        caption: "Pasar Pagi Samarinda"
+        caption: "Pulau Gusung"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(3) : getLocalImage(3),
+        url: require('../../assets/img-penajampaserutara/upacaraadatbelian.jpeg'),
         type: "landscape",
-        caption: "Taman Kota"
+        caption: "Upacara Adat Belian"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(4) : getLocalImage(4),
+        url: require('../../assets/img-penajampaserutara/TariRonggengPaser.jpeg'),
         type: "square",
-        caption: "Festival Budaya Erau"
+        caption: "Tari Ronggeng Paser"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(0) : getLocalImage(0),
+        url: require('../../assets/img-penajampaserutara/musiktingkilan.jpeg'),
         type: "portrait",
-        caption: "Kuliner Khas Samarinda"
+        caption: "Musik Tingkilan"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(1) : getLocalImage(1),
+        url: require('../../assets/img-penajampaserutara/kerajinananyamanrotan.jpeg'),
         type: "landscape",
-        caption: "Kerajinan Tradisional"
+        caption: "Kerajinan Anyaman Rotan"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(2) : getLocalImage(2),
+        url: require('../../assets/img-penajampaserutara/penajampaserutarahero.jpeg'),
         type: "square",
-        caption: "Tarian Adat"
+        caption: "Penajam Paser Utara"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(3) : getLocalImage(3),
+        url: require('../../assets/img-berau/derawan.jpeg'),
         type: "portrait",
-        caption: "Wisata Alam"
+        caption: "Batu Dinding"
       },
       {
-        url: Platform.OS === 'web' ? getLocalImage(4) : getLocalImage(4),
-        type: "landscape",
-        caption: "Transportasi Sungai"
-      },
-      {
-        url: Platform.OS === 'web' ? getLocalImage(0) : getLocalImage(0),
-        type: "square",
-        caption: "Institusi Pendidikan"
-      },
-      {
-        url: Platform.OS === 'web' ? getLocalImage(1) : getLocalImage(1),
+        url: require('../../assets/img-berau/pulaumaratua.jpeg'),
         type: "portrait",
-        caption: "Ekonomi Kreatif"
+        caption: "Pesut Mahakam"
+      },
+      {
+        url: require('../../assets/img-berau/derawan.jpeg'),
+        type: "portrait",
+        caption: "Pulau Derawan"
+      },
+      {
+        url: require('../../assets/img-berau/pulaumaratua.jpeg'),
+        type: "portrait",
+        caption: "Pulau Maratua"
       },
     ],
     funFacts: [
-      "Samarinda memiliki Masjid Islamic Center yang merupakan masjid terbesar kedua di Indonesia setelah Masjid Istiqlal",
-      'Nama Samarinda berasal dari kata "sama" dan "rendah" yang berarti pemukiman yang sama rendahnya',
-      'Kota ini dikenal dengan sebutan "Kota Tepian" karena letaknya di tepi Sungai Mahakam',
+      "Penajam Paser Utara akan menjadi lokasi Ibu Kota Negara (IKN) baru Indonesia",
+      "Kabupaten ini terbentuk pada tahun 2002 dari pemekaran Kabupaten Pasir",
+      "Memiliki potensi wisata bahari yang besar dengan pantai-pantai yang masih alami",
     ],
   },
   {
     id: "2",
-    name: "Balikpapan",
-    thumbnail: getLocalImage(1),
-    description:
-      "Balikpapan adalah kota terbesar kedua di Kalimantan Timur. Dikenal sebagai kota industri dan pelabuhan, Balikpapan juga menawarkan pantai-pantai indah dan hutan bakau yang masih terjaga.",
-    population: "688.318 jiwa (2020)",
-    location: "Terletak di pesisir timur Kalimantan",
-    culture: [
-      {
-        name: "Festival Balikpapan",
-        image: getLocalImage(2),
-        description: "Festival tahunan yang menampilkan berbagai pertunjukan seni dan budaya dari seluruh Kalimantan Timur."
-      },
-      {
-        name: "Tari Pesisir",
-        image: getLocalImage(3),
-        description: "Tarian yang menggambarkan kehidupan masyarakat pesisir dengan gerakan yang dinamis."
-      }
-    ],
-    photos: [
-      {
-        url: getLocalImage(0),
-        type: "landscape",
-        caption: "Pantai Kemala"
-      },
-      {
-        url: getLocalImage(4),
-        type: "square",
-        caption: "Hutan Mangrove"
-      }
-    ],
-    funFacts: [
-      "Balikpapan dijuluki sebagai 'Kota Minyak' karena sejarahnya sebagai pusat pengeboran minyak",
-      "Balikpapan memiliki bandara internasional terbesar di Kalimantan Timur",
-      "Kota ini dikenal memiliki tingkat kebersihan yang tinggi di Indonesia"
-    ],
-  },
-  {
-    id: "3",
-    name: "Berau",
-    thumbnail: getLocalImage(2),
-    description:
-      "Berau adalah kabupaten di Kalimantan Timur yang terkenal dengan kekayaan alamnya. Pulau Derawan dan Maratua yang berada di wilayah Berau dikenal sebagai destinasi wisata bahari kelas dunia.",
-    population: "214.398 jiwa (2020)",
-    location: "Terletak di bagian utara Kalimantan Timur",
-    culture: [
-      {
-        name: "Tari Jepen",
-        image: getLocalImage(0),
-        description: "Tarian tradisional masyarakat pesisir Berau yang dipengaruhi budaya Melayu dan Arab."
-      }
-    ],
-    photos: [
-      {
-        url: getLocalImage(1),
-        type: "landscape",
-        caption: "Pulau Derawan"
-      },
-      {
-        url: getLocalImage(3),
-        type: "portrait",
-        caption: "Penyu Hijau"
-      }
-    ],
-    funFacts: [
-      "Berau memiliki habitat penyu hijau terbesar di Indonesia",
-      "Danau Labuan Cermin di Berau memiliki fenomena unik dimana airnya terdiri dari lapisan air tawar dan air asin",
-      "Berau adalah penghasil udang terbesar di Kalimantan Timur"
-    ],
-  },
-  {
-    id: "4",
     name: "Kutai Kartanegara",
-    thumbnail: getLocalImage(3),
+    thumbnail: kutaiKartanegaraImage,
     description:
       "Kutai Kartanegara adalah kabupaten terluas di Kalimantan Timur dan merupakan wilayah bekas Kesultanan Kutai yang kaya akan sejarah dan budaya.",
     population: "725.293 jiwa (2020)",
@@ -245,15 +205,46 @@ const regions: Region[] = [
     culture: [
       {
         name: "Upacara Belimbur",
-        image: getLocalImage(4),
+        image: require('../../assets/img-kutaikartanegara/upacarabelimbur.jpeg'),
         description: "Ritual mandi bersama di Sungai Mahakam sebagai simbol pembersihan diri dari hal-hal negatif."
+      },
+      {
+        name: "Festival Erau",
+        image: require('../../assets/img-kutaikartanegara/festivalerau.jpeg'),
+        description: "Upacara adat tahunan Kesultanan Kutai Kartanegara untuk memperingati penobatan raja atau sultan."
       }
     ],
+    culinary: [],
     photos: [
       {
-        url: getLocalImage(0),
+        url: require('../../assets/img-kutaikartanegara/museummulawarman.jpeg'),
         type: "square",
         caption: "Museum Mulawarman"
+      },
+      {
+        url: require('../../assets/img-kutaikartanegara/KedatonKutaiKartanegara.jpeg'),
+        type: "landscape",
+        caption: "Kedaton Kutai Kartanegara"
+      },
+      {
+        url: require('../../assets/img-kutaikartanegara/festivalerau.jpeg'),
+        type: "portrait",
+        caption: "Festival Erau"
+      },
+      {
+        url: require('../../assets/img-kutaikartanegara/upacarabelimbur.jpeg'),
+        type: "landscape",
+        caption: "Upacara Belimbur"
+      },
+      {
+        url: require('../../assets/img-kutaikartanegara/pulaukumala.jpeg'),
+        type: "square",
+        caption: "Pulau Kumala"
+      },
+      {
+        url: require('../../assets/img-kutaikartanegara/Kutai-Kartanagarahero.jpeg'),
+        type: "portrait",
+        caption: "Kutai Kartanegara"
       }
     ],
     funFacts: [
@@ -263,68 +254,550 @@ const regions: Region[] = [
     ],
   },
   {
-    id: "5",
-    name: "Bontang",
-    thumbnail: bontangImage,
+    id: "3",
+    name: "Mahakam Hulu",
+    thumbnail: mahakamHuluImage,
     description:
-      "Bontang adalah kota industri di Kalimantan Timur yang terkenal dengan pabrik gas alam cair (LNG) terbesar di Indonesia. Meski demikian, Bontang juga memiliki keindahan alam seperti terumbu karang dan hutan mangrove.",
-    population: "174.452 jiwa (2020)",
-    location: "Terletak di pesisir timur Kalimantan",
+      "Mahakam Hulu adalah kabupaten di Kalimantan Timur yang kaya akan sumber daya alam dan budaya tradisional. Wilayah ini memiliki hutan yang luas dan masyarakat dengan tradisi yang masih terjaga.",
+    population: "120.356 jiwa (2020)",
+    location: "Terletak di bagian barat Kalimantan Timur",
     culture: [
       {
-        name: "Pesta Laut",
-        image: getLocalImage(1),
-        description: "Perayaan tahunan nelayan Bontang sebagai ungkapan syukur atas hasil laut yang melimpah."
+        name: "Upacara Adat Kwangkay",
+        image: require('../../assets/img-mahakamhulu/upacaraadatkwangkay.jpeg'),
+        description: "Upacara pemindahan tulang-belulang leluhur yang sudah dikuburkan ke tempat yang baru, sebagai bentuk penghormatan kepada leluhur."
+      },
+      {
+        name: "Tari Hudoq",
+        image: require('../../assets/img-mahakamhulu/Tari Hudoq.jpeg'),
+        description: "Tarian sakral yang mengenakan topeng berbentuk binatang untuk mengusir roh jahat dan menyambut musim panen."
+      }
+    ],
+    culinary: [],
+    photos: [
+      {
+        url: require('../../assets/img-mahakamhulu/hutantropismahakamhulu.jpeg'),
+        type: "landscape",
+        caption: "Hutan Tropis Mahakam Hulu"
+      },
+      {
+        url: require('../../assets/img-mahakamhulu/upacaraadattradisional.jpeg'),
+        type: "square",
+        caption: "Upacara Adat Tradisional"
+      },
+      {
+        url: require('../../assets/img-mahakamhulu/mahakamuluhero.jpeg'),
+        type: "portrait",
+        caption: "Budaya Dayak Mahakam Hulu"
+      },
+      {
+        url: require('../../assets/img-mahakamhulu/upacaraadatkwangkay.jpeg'),
+        type: "landscape",
+        caption: "Upacara Adat Kwangkay"
+      },
+      {
+        url: require('../../assets/img-mahakamhulu/Tari Hudoq.jpeg'),
+        type: "square",
+        caption: "Tari Hudoq"
+      }
+    ],
+    funFacts: [
+      "Mahakam Hulu memiliki keanekaragaman hayati yang tinggi dengan banyak spesies endemik",
+      "Masyarakat di Mahakam Hulu masih memegang teguh adat istiadat dan tradisi leluhur",
+      "Wilayah ini memiliki banyak sungai yang menjadi urat nadi transportasi masyarakat"
+    ],
+  },
+  {
+    id: "4",
+    name: "Kutai Barat",
+    thumbnail: kutaiBaratImage,
+    description:
+      "Kutai Barat adalah kabupaten di Kalimantan Timur yang kaya akan budaya Dayak dan sumber daya alam. Wilayah ini masih memiliki hutan yang luas dan keanekaragaman hayati yang tinggi.",
+    population: "153.837 jiwa (2020)",
+    location: "Terletak di bagian barat Kalimantan Timur",
+    culture: [
+      {
+        name: "Upacara Adat Belian Bawo",
+        image: require('../../assets/img-kutaibarat/UpacaraAdatBelianBawo.jpeg'),
+        description: "Ritual penyembuhan yang dilakukan oleh suku Dayak Benuaq, dipimpin oleh seorang dukun atau Belian."
+      },
+      {
+        name: "Tari Ngerangkau",
+        image: require('../../assets/img-kutaibarat/TariNgerangkau.jpeg'),
+        description: "Tarian yang menggambarkan perburuan kepala pada masa lampau, kini dipertunjukkan sebagai pelestarian budaya."
+      }
+    ],
+    culinary: [],
+    photos: [
+      {
+        url: require('../../assets/img-kutaibarat/PegununganMeratus.jpeg'),
+        type: "landscape",
+        caption: "Pegunungan Meratus"
+      },
+      {
+        url: require('../../assets/img-kutaibarat/kutaibarathero.jpeg'),
+        type: "portrait",
+        caption: "Pemandangan Kutai Barat"
+      },
+      {
+        url: require('../../assets/img-kutaibarat/HutanLindungKutaiBarat.jpeg'),
+        type: "square",
+        caption: "Hutan Lindung Kutai Barat"
+      },
+      {
+        url: require('../../assets/img-kutaibarat/UpacaraAdatBelianBawo.jpeg'),
+        type: "landscape",
+        caption: "Upacara Adat Belian Bawo"
+      },
+      {
+        url: require('../../assets/img-kutaibarat/TariNgerangkau.jpeg'),
+        type: "square",
+        caption: "Tari Ngerangkau"
+      },
+      {
+        url: require('../../assets/img-kutaibarat/kutaibarathero.jpeg'),
+        type: "portrait",
+        caption: "Danau di Kutai Barat"
+      },
+    ],
+    funFacts: [
+      "Kutai Barat memiliki rumah adat Lamin yang bisa dihuni hingga 30 keluarga",
+      "Daerah ini memiliki tradisi seni ukir dan anyaman yang sangat detail dan bernilai tinggi",
+      "Masyarakat Dayak di Kutai Barat memiliki pengetahuan herbal tradisional yang luas"
+    ],
+  },
+  {
+    id: "5",
+    name: "Balikpapan",
+    thumbnail: require('../../assets/img-baikpapan/balikpapanhero.jpg'),
+    description:
+      "Balikpapan adalah kota terbesar kedua di Kalimantan Timur dan menjadi pusat ekonomi utama. Dikenal sebagai kota minyak, Balikpapan juga memiliki pantai-pantai indah dan infrastruktur modern.",
+    population: "688.318 jiwa (2020)",
+    location: "Terletak di Teluk Balikpapan, pantai timur Kalimantan",
+    culture: [
+      {
+        name: "Festival Adat Mappanre Laut",
+        image: require('../../assets/img-baikpapan/taripesisirpantai.jpeg'),
+        description: "Upacara syukuran nelayan atas hasil tangkapan laut yang dilakukan oleh masyarakat pesisir Balikpapan."
+      },
+      {
+        name: "Tari Pesisir Pantai",
+        image: require('../../assets/img-baikpapan/taripesisirpantai.jpeg'),
+        description: "Tarian yang menggambarkan kehidupan masyarakat pesisir pantai Balikpapan dengan gerakan lembut menyerupai ombak."
+      }
+    ],
+    culinary: [
+      {
+        name: "Kepiting Soka Balikpapan",
+        image: require('../../assets/img-baikpapan/Kepitingsoka.jpeg'),
+        description: "Kepiting soka yang dimasak dengan bumbu khas Balikpapan, biasanya digoreng dengan tepung atau diolah dengan saus padang.",
+        origin: "Makanan laut khas pesisir Balikpapan"
+      },
+      {
+        name: "Pisang Gapit",
+        image: require('../../assets/img-baikpapan/pisanggapit.jpeg'),
+        description: "Pisang yang dipotong tipis, dijepit dengan bambu, kemudian dibakar dan disajikan dengan saus gula merah dan kelapa parut.",
+        origin: "Jajanan tradisional dari Balikpapan"
+      },
+      {
+        name: "Nasi Bekepor Balikpapan",
+        image: require('../../assets/img-baikpapan/nasibekeporbalikpapan.jpeg'),
+        description: "Nasi yang dimasak dengan santan dan rempah khas Balikpapan, disajikan dengan lauk seperti ikan bakar atau ayam bumbu merah.",
+        origin: "Adaptasi dari makanan tradisional Paser yang populer di Balikpapan"
       }
     ],
     photos: [
       {
-        url: getLocalImage(2),
+        url: require('../../assets/img-baikpapan/balikpapanhero.jpg'),
         type: "landscape",
-        caption: "Taman Nasional Kutai"
+        caption: "Pemandangan Kota Balikpapan"
+      },
+      {
+        url: require('../../assets/img-baikpapan/mangrove-hutanmargasatwa.jpeg'),
+        type: "portrait",
+        caption: "Hutan Mangrove Margasatwa"
+      },
+      {
+        url: require('../../assets/img-baikpapan/monumenperjuanganrakyat.jpeg'),
+        type: "square",
+        caption: "Monumen Perjuangan Rakyat"
+      },
+      {
+        url: require('../../assets/img-baikpapan/penangkaranberuangmadu.jpeg'),
+        type: "landscape",
+        caption: "Penangkaran Beruang Madu"
       }
     ],
     funFacts: [
-      "Bontang memiliki pabrik LNG terbesar di dunia",
-      "Kota ini memiliki tingkat pendapatan per kapita tertinggi di Kalimantan Timur",
-      "Meski menjadi kota industri, Bontang memiliki terumbu karang yang masih terjaga dengan baik"
+      "Balikpapan sering disebut sebagai 'Kota Minyak' karena sejarahnya sebagai pusat industri perminyakan",
+      "Kota ini memiliki slogan 'Balikpapan Beriman' (Bersih, Indah, Aman, dan Nyaman)",
+      "Balikpapan memiliki bandara internasional terbesar di Kalimantan Timur"
     ],
   },
   {
     id: "6",
-    name: "Paser",
-    thumbnail: getLocalImage(4),
+    name: "Samarinda",
+    thumbnail: require('../../assets/img-samarinda/samarindahero.jpeg'),
     description:
-      "Paser adalah kabupaten di Kalimantan Timur yang berbatasan langsung dengan Kalimantan Selatan. Daerah ini kaya akan pertanian dan perkebunan, serta memiliki pantai yang indah.",
-    population: "273.967 jiwa (2020)",
-    location: "Terletak di bagian selatan Kalimantan Timur",
+      "Samarinda adalah ibu kota provinsi Kalimantan Timur yang terletak di tepi Sungai Mahakam. Kota ini merupakan pusat pemerintahan, pendidikan, dan budaya di Kalimantan Timur.",
+    population: "827.994 jiwa (2020)",
+    location: "Terletak di tepi Sungai Mahakam, Kalimantan Timur",
     culture: [
       {
-        name: "Tari Ronggeng Paser",
-        image: getLocalImage(0),
-        description: "Tarian khas masyarakat Paser yang biasanya ditampilkan pada acara penting dan perayaan."
+        name: "Upacara Adat Tepung Tawar",
+        image: require('../../assets/img-samarinda/upacara adattepungtawar.jpeg'),
+        description: "Ritual pemberkatan yang menggunakan tepung beras yang dilarutkan dalam air sebagai simbol pembersihan diri."
+      },
+      {
+        name: "Tari Kancet Ledo",
+        image: require('../../assets/img-samarinda/tarikancet.jpeg'),
+        description: "Tarian tradisional suku Dayak yang merupakan tarian persembahan dalam upacara penyambutan tamu kehormatan."
+      }
+    ],
+    culinary: [
+      {
+        name: "Nasi Bekepor Samarinda",
+        image: require('../../assets/img-samarinda/masinbekeporsamarinda.jpeg'),
+        description: "Nasi yang dimasak dengan santan, serai, dan daun pandan, kemudian dibungkus dengan daun pisang dan dibakar. Disajikan dengan berbagai lauk pauk.",
+        origin: "Makanan tradisional yang populer di Samarinda"
       }
     ],
     photos: [
       {
-        url: getLocalImage(3),
+        url: require('../../assets/img-samarinda/samarindahero.jpeg'),
+        type: "landscape",
+        caption: "Kota Samarinda"
+      },
+      {
+        url: require('../../assets/img-samarinda/jembatanmahakam.jpeg'),
+        type: "square",
+        caption: "Jembatan Mahakam"
+      },
+      {
+        url: require('../../assets/img-samarinda/tepianmahakam.jpeg'),
         type: "portrait",
-        caption: "Pantai Tanah Merah"
+        caption: "Tepian Mahakam"
+      },
+      {
+        url: require('../../assets/img-samarinda/masinbekeporsamarinda.jpeg'),
+        type: "landscape",
+        caption: "Kuliner Samarinda"
+      },
+      {
+        url: require('../../assets/img-samarinda/tarikancet.jpeg'),
+        type: "square",
+        caption: "Tari Kancet Ledo"
       }
     ],
     funFacts: [
-      "Paser memiliki tambang batubara terbesar di Kalimantan Timur",
-      "Masyarakat Paser memiliki tradisi bercocok tanam padi dengan sistem perladangan berpindah",
-      "Kabupaten ini merupakan daerah penghasil kelapa sawit terbesar di provinsi"
+      "Samarinda terkenal dengan produksi sarung tenun Samarinda yang telah menjadi warisan budaya nasional",
+      "Kota ini memiliki Islamic Center dengan menara setinggi 99 meter yang menjadi landmark utama",
+      "Samarinda dilalui oleh Sungai Mahakam yang merupakan jalur transportasi penting sejak jaman kerajaan"
+    ],
+  },
+  {
+    id: "7",
+    name: "Berau",
+    thumbnail: require('../../assets/img-berau/derawan.jpeg'),
+    description:
+      "Berau adalah kabupaten di Kalimantan Timur yang terkenal dengan Kepulauan Derawan, destinasi wisata terindah di Indonesia. Daerah ini kaya akan keanekaragaman hayati laut dan hutan.",
+    population: "214.378 jiwa (2020)",
+    location: "Terletak di bagian utara Kalimantan Timur",
+    culture: [
+      {
+        name: "Upacara Adat Pelas Kampung",
+        image: require('../../assets/img-berau/upacaraadatpelaskampung.jpeg'),
+        description: "Ritual tahunan untuk menghilangkan malapetaka dan menyucikan kampung dari gangguan roh jahat."
+      },
+      {
+        name: "Tari Jepen Berau",
+        image: require('../../assets/img-berau/tarijepenberau.jpeg'),
+        description: "Tarian tradisional masyarakat Berau yang menggambarkan kegembiraan dan biasanya ditampilkan pada acara pernikahan atau penyambutan tamu."
+      }
+    ],
+    culinary: [
+      {
+        name: "Kepiting Soka Berau",
+        image: require('../../assets/img-berau/kepitingsokaberau.jpeg'),
+        description: "Kepiting soka khas Berau yang dimasak dengan bumbu khas dan digoreng dengan tepung. Memiliki rasa manis dan gurih.",
+        origin: "Makanan laut populer dari pesisir Berau"
+      },
+      {
+        name: "Sate Ikan Pari",
+        image: require('../../assets/img-berau/sateikanpari.jpeg'),
+        description: "Sate yang terbuat dari daging ikan pari yang dipotong dadu, ditusuk, dan dibakar dengan bumbu kacang khas Berau.",
+        origin: "Makanan tradisional nelayan Berau"
+      },
+      {
+        name: "Otak-otak Ikan Berau",
+        image: require('../../assets/img-berau/otakotakikan.jpeg'),
+        description: "Campuran daging ikan yang dihaluskan dengan tepung dan bumbu, kemudian dibungkus daun pisang dan dipanggang.",
+        origin: "Jajanan populer dari pesisir Berau"
+      }
+    ],
+    photos: [
+      {
+        url: require('../../assets/img-berau/derawan.jpeg'),
+        type: "landscape",
+        caption: "Pulau Derawan"
+      },
+      {
+        url: require('../../assets/img-berau/pulaumaratua.jpeg'),
+        type: "square",
+        caption: "Pulau Maratua"
+      },
+      {
+        url: require('../../assets/img-berau/labuancermin.jpeg'),
+        type: "portrait",
+        caption: "Danau Labuan Cermin"
+      },
+      {
+        url: require('../../assets/img-berau/penangkaranpenyu.jpeg'),
+        type: "landscape",
+        caption: "Penangkaran Penyu"
+      }
+    ],
+    funFacts: [
+      "Kepulauan Derawan di Berau adalah habitat bagi penyu hijau dan penyu sisik yang dilindungi",
+      "Danau Labuan Cermin memiliki fenomena dua lapis air (tawar dan asin) dengan kejernihan luar biasa",
+      "Berau adalah salah satu penghasil udang terbesar di Indonesia"
+    ],
+  },
+  {
+    id: "8",
+    name: "Paser",
+    thumbnail: require('../../assets/img-paser/paserhero.jpeg'),
+    description:
+      "Paser adalah kabupaten di bagian selatan Kalimantan Timur. Wilayah ini kaya akan sumber daya alam dan memiliki potensi pertanian, perkebunan, dan pertambangan yang besar.",
+    population: "269.789 jiwa (2020)",
+    location: "Terletak di bagian selatan Kalimantan Timur",
+    culture: [
+      {
+        name: "Upacara Adat Naik Ayun",
+        image: require('../../assets/img-paser/upacaraadat.jpeg'),
+        description: "Ritual untuk bayi yang baru lahir dengan mengayun bayi dalam ayunan khusus sebagai simbol pengenalan kepada alam."
+      },
+      {
+        name: "Tari Rembara",
+        image: require('../../assets/img-paser/tarirembara.jpeg'),
+        description: "Tarian tradisional masyarakat Paser yang menggambarkan keberanian dan semangat juang para pejuang Paser melawan penjajah."
+      }
+    ],
+    culinary: [
+      {
+        name: "Ketupat Kandangan",
+        image: require('../../assets/img-paser/ketupatkandangan.jpeg'),
+        description: "Ketupat yang disajikan dengan kuah santan kuning bersama daging sapi atau ayam. Memiliki rasa gurih yang khas.",
+        origin: "Makanan tradisional masyarakat Paser untuk perayaan"
+      },
+      {
+        name: "Nasi Bekepor Paser",
+        image: require('../../assets/img-paser/nasibekepor.jpeg'),
+        description: "Nasi yang dimasak dengan santan dan rempah dalam bungkusan daun pisang. Varian Paser memiliki bumbu yang lebih kaya.",
+        origin: "Makanan khas masyarakat Paser yang telah ada sejak lama"
+      },
+      {
+        name: "Geguduh",
+        image: require('../../assets/img-paser/geguduh.jpeg'),
+        description: "Kue tradisional yang terbuat dari tepung beras, kelapa parut, dan gula merah. Digoreng hingga renyah di luar dan lembut di dalam.",
+        origin: "Jajanan tradisional untuk acara adat dan perayaan"
+      }
+    ],
+    photos: [
+      {
+        url: require('../../assets/img-paser/paserhero.jpeg'),
+        type: "landscape",
+        caption: "Pemandangan Kabupaten Paser"
+      },
+      {
+        url: require('../../assets/img-paser/ketupatkandangan.jpeg'),
+        type: "square",
+        caption: "Ketupat Kandangan"
+      },
+      {
+        url: require('../../assets/img-paser/nasibekepor.jpeg'),
+        type: "portrait",
+        caption: "Nasi Bekepor Paser"
+      },
+      {
+        url: require('../../assets/img-paser/geguduh.jpeg'),
+        type: "landscape",
+        caption: "Kue Geguduh"
+      },
+      {
+        url: require('../../assets/img-paser/tarirembara.jpeg'),
+        type: "square",
+        caption: "Tari Rembara"
+      }
+    ],
+    funFacts: [
+      "Paser dahulu merupakan Kerajaan Pasir Balengkong yang berdiri sekitar abad ke-17",
+      "Masyarakat Paser memiliki tradisi Beumaa (membuka lahan) yang dilakukan secara gotong royong",
+      "Kabupaten ini menghasilkan buah naga dan durian yang terkenal dengan kualitas premium"
+    ],
+  },
+  {
+    id: "9",
+    name: "Bontang",
+    thumbnail: require('../../assets/img-bontang/bontanghero.jpeg'),
+    description:
+      "Bontang adalah kota industri di Kalimantan Timur yang terkenal dengan pabrik gas alam cair dan pupuk. Meskipun berfokus pada industri, Bontang juga memiliki keindahan alam laut dan hutan mangrove.",
+    population: "170.611 jiwa (2020)",
+    location: "Terletak di pesisir timur Kalimantan Timur",
+    culture: [
+      {
+        name: "Festival Laut Bontang",
+        image: require('../../assets/img-bontang/fistival laut.jpeg'),
+        description: "Perayaan tahunan untuk menghormati laut dan nelayan dengan berbagai atraksi budaya dan lomba perahu tradisional."
+      },
+      {
+        name: "Tari Pesisir Bontang",
+        image: require('../../assets/img-bontang/fistival laut.jpeg'),
+        description: "Tarian yang menggambarkan kehidupan nelayan dan masyarakat pesisir Bontang dengan gerakan yang mengalun seperti ombak."
+      }
+    ],
+    culinary: [
+      {
+        name: "Ikan Bakar Mangrove",
+        image: require('../../assets/img-bontang/ikanbakarmangruf.jpeg'),
+        description: "Ikan segar yang dibakar dengan bumbu khas Bontang dan disajikan dengan sambal dabu-dabu. Memiliki aroma asap dari kayu bakau.",
+        origin: "Makanan khas nelayan di kawasan mangrove Bontang"
+      },
+      {
+        name: "Kepiting Kenari",
+        image: require('../../assets/img-bontang/kepitingkenari.jpeg'),
+        description: "Kepiting yang dimasak dengan bumbu kenari khas Bontang, memberikan rasa gurih dan aroma khas pada hidangan.",
+        origin: "Makanan laut tradisional dari Bontang Kuala"
+      },
+      {
+        name: "Sambal Bontang",
+        image: require('../../assets/img-bontang/sambal.jpeg'),
+        description: "Sambal khas Bontang yang terbuat dari campuran cabai, terasi, dan jeruk nipis, dengan tambahan ikan teri atau udang rebon.",
+        origin: "Bumbu tradisional masyarakat pesisir dan sungai"
+      }
+    ],
+    photos: [
+      {
+        url: require('../../assets/img-bontang/bontanghero.jpeg'),
+        type: "landscape",
+        caption: "Kota Bontang"
+      },
+      {
+        url: require('../../assets/img-bontang/fistival laut.jpeg'),
+        type: "square",
+        caption: "Festival Laut Bontang"
+      },
+      {
+        url: require('../../assets/img-bontang/ikanbakarmangruf.jpeg'),
+        type: "portrait",
+        caption: "Ikan Bakar Mangrove"
+      },
+      {
+        url: require('../../assets/img-bontang/kepitingkenari.jpeg'),
+        type: "landscape",
+        caption: "Kepiting Kenari"
+      },
+      {
+        url: require('../../assets/img-bontang/sambal.jpeg'),
+        type: "square",
+        caption: "Sambal Bontang"
+      }
+    ],
+    funFacts: [
+      "Bontang memiliki pabrik LNG (Liquefied Natural Gas) terbesar di Indonesia",
+      "Kota ini dikelilingi oleh Taman Nasional Kutai yang merupakan habitat orangutan",
+      "Kampung Bontang Kuala adalah perkampungan nelayan di atas air dengan rumah panggung tradisional"
+    ],
+  },
+  {
+    id: "10",
+    name: "Sangatta",
+    thumbnail: require('../../assets/img-sangata/sangatahero.jpeg'),
+    description:
+      "Sangatta adalah ibukota Kabupaten Kutai Timur di Kalimantan Timur dan menjadi pusat pertambangan batubara. Daerah ini juga memiliki kekayaan alam berupa hutan hujan tropis yang menjadi rumah bagi berbagai flora dan fauna langka.",
+    population: "163.898 jiwa (2020)",
+    location: "Terletak di bagian timur Kalimantan Timur",
+    culture: [
+      {
+        name: "Festival Erau Kutai Timur",
+        image: require('../../assets/img-sangata/eraukutaitimur.jpeg'),
+        description: "Perayaan budaya tahunan yang menampilkan berbagai pertunjukan seni dan upacara adat khas Kutai Timur sebagai wujud syukur dan pelestarian tradisi."
+      },
+      {
+        name: "Tari Perang Suku Dayak",
+        image: require('../../assets/img-sangata/tariperang.jpeg'),
+        description: "Tarian tradisional yang menggambarkan keberanian dan semangat juang para prajurit Dayak dalam pertempuran melawan musuh."
+      }
+    ],
+    culinary: [
+      {
+        name: "Kepiting Kenari Sangatta",
+        image: require('../../assets/img-sangata/kepiting kenarisangata.jpeg'),
+        description: "Kepiting yang dimasak dengan bumbu khas Sangatta yang kaya akan rempah dan kacang kenari, memberikan cita rasa gurih yang khas.",
+        origin: "Makanan laut khas daerah pesisir Sangatta"
+      },
+      {
+        name: "Nasi Bekepor Kutai Timur",
+        image: require('../../assets/img-sangata/nasiberkepoi.jpeg'),
+        description: "Nasi yang dimasak dengan santan, dibungkus daun pisang dan disajikan dengan lauk pauk seperti ayam atau ikan. Versi Kutai Timur memiliki aroma rempah yang lebih kuat.",
+        origin: "Makanan tradisional masyarakat Kutai Timur"
+      },
+      {
+        name: "Sayur Daun Singkong Santan",
+        image: require('../../assets/img-sangata/sayurdaunsingkongsantan.jpeg'),
+        description: "Daun singkong yang direbus dan dimasak dengan santan, rempah-rempah, dan ikan asin. Menjadi hidangan sehari-hari yang populer di Sangatta.",
+        origin: "Masakan rumahan khas masyarakat lokal Sangatta"
+      }
+    ],
+    photos: [
+      {
+        url: require('../../assets/img-sangata/sangatahero.jpeg'),
+        type: "landscape",
+        caption: "Sangatta"
+      },
+      {
+        url: require('../../assets/img-sangata/eraukutaitimur.jpeg'),
+        type: "square",
+        caption: "Festival Erau Kutai Timur"
+      },
+      {
+        url: require('../../assets/img-sangata/tariperang.jpeg'),
+        type: "portrait",
+        caption: "Tari Perang Suku Dayak"
+      },
+      {
+        url: require('../../assets/img-sangata/kepiting kenarisangata.jpeg'),
+        type: "landscape",
+        caption: "Kepiting Kenari Sangatta"
+      },
+      {
+        url: require('../../assets/img-sangata/nasiberkepoi.jpeg'),
+        type: "square",
+        caption: "Nasi Bekepor Kutai Timur"
+      }
+    ],
+    funFacts: [
+      "Sangatta adalah pusat pertambangan batubara terbesar di Indonesia dan rumah bagi PT Kaltim Prima Coal",
+      "Taman Nasional Kutai yang terletak di dekat Sangatta merupakan salah satu habitat orangutan terbesar di Indonesia",
+      "Sebelum menjadi kota tambang, Sangatta adalah daerah dengan hutan hujan tropis yang luas dan menjadi rumah bagi suku Dayak"
     ],
   }
 ];
 
-// Helper function to create gallery columns
+// Helper function to create gallery columns with better distribution
 const createGalleryColumns = (photos: PhotoItem[], columnCount: number) => {
   const columns = Array.from({ length: columnCount }, () => [] as PhotoItem[]);
   
-  photos.forEach((photo, index) => {
+  // Sort photos by type to distribute them more evenly
+  const landscapePhotos = photos.filter(p => p.type === 'landscape');
+  const portraitPhotos = photos.filter(p => p.type === 'portrait');
+  const squarePhotos = photos.filter(p => p.type === 'square');
+  
+  // Combine all photos in an optimal distribution
+  const sortedPhotos = [...landscapePhotos, ...squarePhotos, ...portraitPhotos];
+  
+  // Distribute photos to columns
+  sortedPhotos.forEach((photo, index) => {
     const columnIndex = index % columnCount;
     columns[columnIndex].push(photo);
   });
@@ -333,6 +806,7 @@ const createGalleryColumns = (photos: PhotoItem[], columnCount: number) => {
 };
 
 export default function ExploreScreen() {
+  const navigation = useNavigation();
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [isDesktop, setIsDesktop] = useState(windowWidth >= 1024);
@@ -344,6 +818,163 @@ export default function ExploreScreen() {
   const [filteredRegions, setFilteredRegions] = useState(regions);
   const [isSearching, setIsSearching] = useState(false);
   
+  // Add state for category filtering
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryResults, setCategoryResults] = useState<{
+    type: string,
+    items: Array<{
+      regionId: string,
+      regionName: string,
+      item: any
+    }>
+  } | null>(null);
+  
+  // Add mute/unmute state for hero video
+  const [isMuted, setIsMuted] = useState(false);
+  const [userMutePreference, setUserMutePreference] = useState(false); // Store user's preference
+  const videoRef = useRef<Video>(null);
+  const [isPlaying, setIsPlaying] = useState(false); // Set default to false
+  const appState = useRef(AppState.currentState);
+  const isFocused = useIsFocused(); // Hook to detect if screen is focused
+  
+  // Effect to handle muting when screen focus changes
+  useEffect(() => {
+    if (!isFocused) {
+      // Screen is not in focus, always mute video
+      console.log('Screen lost focus - muting video');
+      setIsMuted(true);
+    } else {
+      // Screen is in focus, restore user's preference
+      console.log('Screen gained focus - restoring user mute preference');
+      setIsMuted(userMutePreference);
+    }
+  }, [isFocused, userMutePreference]);
+  
+  // Handle user toggling mute button
+  const handleToggleMute = () => {
+    const newMuteState = !isMuted;
+    setIsMuted(newMuteState);
+    setUserMutePreference(newMuteState); // Remember user's choice
+    console.log('User toggled mute to:', newMuteState);
+  };
+  
+  // Function to completely unload video
+  const unloadVideo = async () => {
+    if (videoRef.current) {
+      try {
+        console.log('Unloading video completely');
+        await videoRef.current.stopAsync();
+        await videoRef.current.unloadAsync();
+        setIsPlaying(false);
+      } catch (error) {
+        console.log('Error unloading video:', error);
+      }
+    }
+  };
+  
+  // Use useFocusEffect which is called when screen comes into focus and cleanup when it loses focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // This runs when the screen is focused
+      console.log('Screen is focused');
+      
+      // Return a cleanup function that runs when the screen is unfocused
+      return () => {
+        console.log('Screen is unfocused - cleaning up video');
+        unloadVideo();
+      };
+    }, [])
+  );
+  
+  // Add a navigation state listener to detect screen changes
+  useEffect(() => {
+    if (!navigation) return;
+    
+    // Function to handle navigation state changes
+    const unsubscribe = navigation.addListener('state', () => {
+      // This will run whenever the navigation state changes (switching screens)
+      console.log('Navigation state changed - stopping video');
+      unloadVideo();
+    });
+    
+    // Cleanup the listener on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [navigation]);
+  
+  // Add effect for selectedRegion changes
+  useEffect(() => {
+    if (selectedRegion) {
+      // If a region is selected, unload the video
+      unloadVideo();
+    }
+  }, [selectedRegion]);
+  
+  // App state effect - more aggressive
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      console.log('App state changing from', appState.current, 'to', nextAppState);
+      
+      if (nextAppState !== 'active') {
+        // App is going to background or inactive
+        await unloadVideo();
+      }
+      
+      appState.current = nextAppState;
+    };
+    
+    // Subscribe to app state changes
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    // Cleanup function
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+  
+  // Component unmount cleanup
+  useEffect(() => {
+    return () => {
+      // Final cleanup when component unmounts
+      unloadVideo();
+    };
+  }, []);
+  
+  // More aggressive cleanup on app state change
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/active/) && 
+        nextAppState.match(/inactive|background/)
+      ) {
+        // App is going to background - completely unload the video
+        if (videoRef.current) {
+          try {
+            await videoRef.current.stopAsync();
+            await videoRef.current.unloadAsync();
+            setIsPlaying(false);
+            console.log('Video unloaded due to app going to background');
+          } catch (error) {
+            console.log('Error unloading video:', error);
+          }
+        }
+      }
+      
+      appState.current = nextAppState;
+    };
+    
+    // Subscribe to app state changes
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    // Cleanup function
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+  
   // Add hover state for cards
   const [hoveredFeatured, setHoveredFeatured] = useState<string | null>(null);
   const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
@@ -353,7 +984,7 @@ export default function ExploreScreen() {
   // Create refs for all regions to track their positions
   const regionRefs = useRef<Array<any>>(new Array(regions.length).fill(null));
   const featuredRefs = useRef<Array<any>>(new Array(regions.length).fill(null));
-  const categoryRefs = useRef<Array<any>>(new Array(6).fill(null));
+  const categoryRefs = useRef<Array<any>>(new Array(3).fill(null));
   
   // Animation values for each card
   const [entryAnimations] = useState(() => 
@@ -361,7 +992,7 @@ export default function ExploreScreen() {
   );
   
   const [categoryAnimations] = useState(() => 
-    Array(6).fill(0).map(() => new Animated.Value(0))
+    Array(3).fill(0).map(() => new Animated.Value(0))
   );
 
   // Add these animation values in the component where other animations are defined
@@ -435,6 +1066,24 @@ export default function ExploreScreen() {
           useNativeDriver: true,
         }),
       ]).start();
+    } else if (activeTab === "culinary") {
+      // Reset animation values for culinary tab
+      cultureAnimFade.setValue(0);
+      cultureAnimSlide.setValue(50);
+      
+      // Start animations
+      Animated.parallel([
+        Animated.timing(cultureAnimFade, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cultureAnimSlide, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
   }, [activeTab]);
 
@@ -482,7 +1131,7 @@ export default function ExploreScreen() {
       // Clean up event listener when component unmounts
     };
   }, []);
-
+  
   // Update the search function to populate categorized results
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -539,6 +1188,88 @@ export default function ExploreScreen() {
     return isDesktop ? 350 : 240;
   };
 
+  // Function to filter items by category
+  const filterByCategory = (category: string) => {
+    setSelectedCategory(category);
+    let results: Array<{regionId: string, regionName: string, item: any}> = [];
+    let type: string = '';
+    
+    // Based on selected category, get relevant items from all regions
+    switch(category) {
+      case 'Tarian':
+        type = 'culture';
+        regions.forEach(region => {
+          region.culture.forEach(item => {
+            if (item.name.toLowerCase().includes('tari') || 
+                item.description.toLowerCase().includes('tari')) {
+              results.push({
+                regionId: region.id,
+                regionName: region.name,
+                item: item
+              });
+            }
+          });
+        });
+        break;
+      
+      case 'Kuliner':
+        type = 'culinary';
+        regions.forEach(region => {
+          region.culinary.forEach(item => {
+            results.push({
+              regionId: region.id,
+              regionName: region.name,
+              item: item
+            });
+          });
+        });
+        break;
+      
+      case 'Festival':
+        type = 'culture';
+        regions.forEach(region => {
+          region.culture.forEach(item => {
+            if (item.name.toLowerCase().includes('festival') || 
+                item.description.toLowerCase().includes('festival') ||
+                item.name.toLowerCase().includes('upacara') || 
+                item.description.toLowerCase().includes('upacara')) {
+              results.push({
+                regionId: region.id,
+                regionName: region.name,
+                item: item
+              });
+            }
+          });
+        });
+        break;
+    }
+    
+    setCategoryResults({
+      type,
+      items: results
+    });
+  };
+  
+  // Function to close category results and reset state
+  const closeCategory = () => {
+    setSelectedCategory(null);
+    setCategoryResults(null);
+  };
+  
+  // Add function to navigate to region and appropriate tab
+  const navigateToRegionWithCategory = (regionId: string, type: string) => {
+    const region = regions.find(r => r.id === regionId);
+    if (region) {
+      setSelectedRegion(region);
+      
+      if (type === 'culture') {
+        setActiveTab('culture');
+      } else if (type === 'culinary') {
+        setActiveTab('culinary');
+      }
+    }
+  };
+
   if (selectedRegion) {
     return (
       <Layout>
@@ -547,341 +1278,413 @@ export default function ExploreScreen() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setSelectedRegion(null)}
-            >
-              <View style={styles.backButtonContainer}>
-                <Ionicons name="arrow-back-circle" size={38} color={Colors.primary} />
-              </View>
-            </TouchableOpacity>
-
-            <Text style={styles.title}>{selectedRegion.name}</Text>
-          </View>
-
-          <View style={[styles.heroImageContainer, isDesktop && styles.heroImageContainerDesktop]}>
-            {selectedRegion.id === "5" ? (
-              <Image
-                source={bontangImage}
-                style={[styles.heroImage, isDesktop && styles.heroImageDesktop]}
-                resizeMode="cover"
-              />
-            ) : (
-            <Image
-                source={selectedRegion.thumbnail}
-              style={styles.heroImage}
-                {...(isDesktop && {style: styles.heroImageDesktop})}
-              resizeMode="cover"
-            />
-            )}
-          </View>
-
-          <View style={[styles.tabBar, isDesktop && styles.tabBarDesktop]}>
-            <TouchableOpacity
-              style={[
-                styles.tab, 
-                activeTab === "info" ? styles.activeTab : styles.inactiveTab,
-                isDesktop && styles.tabDesktop
-              ]}
-              onPress={() => setActiveTab("info")}
-            >
-              <Text style={activeTab === "info" ? styles.activeTabText : styles.tabText}>Informasi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab, 
-                activeTab === "culture" ? styles.activeTab : styles.inactiveTab,
-                isDesktop && styles.tabDesktop
-              ]}
-              onPress={() => setActiveTab("culture")}
-            >
-              <Text style={activeTab === "culture" ? styles.activeTabText : styles.tabText}>Budaya</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab, 
-                activeTab === "gallery" ? styles.activeTab : styles.inactiveTab,
-                isDesktop && styles.tabDesktop
-              ]}
-              onPress={() => setActiveTab("gallery")}
-            >
-              <Text style={activeTab === "gallery" ? styles.activeTabText : styles.tabText}>Galeri</Text>
-            </TouchableOpacity>
-          </View>
-
-          {activeTab === "info" && (
-            <Animated.View 
-              style={[
-                styles.tabContent, 
-                isDesktop && styles.tabContentDesktop,
-                { opacity: infoAnimFade, transform: [{ translateY: infoAnimSlide }] }
-              ]}
-            >
-              <Animated.View 
-                style={[
-                  styles.cardContainer, 
-                  isDesktop && styles.cardContainerDesktop,
-                  { 
-                    opacity: infoAnimFade,
-                    transform: [{ 
-                      translateY: infoAnimFade.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [30, 0]
-                      })
-                    }]
-                  }
-                ]}
+          <View style={[
+            styles.storyContainer,
+            isDesktop && styles.storyContainerDesktop
+          ]}>
+            <View style={styles.storyHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => setSelectedRegion(null)}
               >
-                <Animated.Text 
-                  style={[
-                    styles.description, 
-                    isDesktop && styles.descriptionDesktop,
-                    { 
-                      opacity: infoAnimFade,
-                      transform: [{ 
-                        translateY: infoAnimFade.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [20, 0]
-                        })
-                      }]
-                    }
-                  ]}
-                >
-                  {selectedRegion.description}
-                </Animated.Text>
+                <Ionicons name="arrow-back" size={24} color={Colors.primary} />
+                <Text style={styles.backButtonText}>Kembali</Text>
+              </TouchableOpacity>
 
-                <Animated.View 
-                  style={[
-                    styles.infoContainer, 
-                    isDesktop && styles.infoContainerDesktop,
-                    { 
-                      opacity: infoAnimFade,
-                      transform: [{ 
-                        translateY: infoAnimFade.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [25, 0]
-                        })
-                      }]
-                    }
-                  ]}
-                >
-                {/* Populasi */}
+              <Text style={[styles.storyTitle, isDesktop && styles.storyTitleDesktop]}>
+                {selectedRegion.name}
+              </Text>
+            </View>
+
+            <View style={isDesktop ? styles.desktopContentLayout : null}>
+              <View style={isDesktop ? styles.desktopImageContainer : null}>
+                <Image
+                  source={selectedRegion.id === "5" ? defaultHeroImage : selectedRegion.thumbnail}
+                  style={[styles.storyImage, isDesktop && styles.storyImageDesktop]}
+                  resizeMode="cover"
+                />
+              </View>
+
+              <View style={isDesktop ? styles.desktopContentContainer : null}>
+                <View style={[styles.tabBar, isDesktop && styles.tabBarDesktop]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.tab, 
+                      activeTab === "info" ? styles.activeTab : styles.inactiveTab,
+                      isDesktop && styles.tabDesktop
+                    ]}
+                    onPress={() => setActiveTab("info")}
+                  >
+                    <Text style={activeTab === "info" ? styles.activeTabText : styles.tabText}>Informasi</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.tab, 
+                      activeTab === "culture" ? styles.activeTab : styles.inactiveTab,
+                      isDesktop && styles.tabDesktop
+                    ]}
+                    onPress={() => setActiveTab("culture")}
+                  >
+                    <Text style={activeTab === "culture" ? styles.activeTabText : styles.tabText}>Budaya</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.tab, 
+                      activeTab === "culinary" ? styles.activeTab : styles.inactiveTab,
+                      isDesktop && styles.tabDesktop
+                    ]}
+                    onPress={() => setActiveTab("culinary")}
+                  >
+                    <Text style={activeTab === "culinary" ? styles.activeTabText : styles.tabText}>Kuliner</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.tab, 
+                      activeTab === "gallery" ? styles.activeTab : styles.inactiveTab,
+                      isDesktop && styles.tabDesktop
+                    ]}
+                    onPress={() => setActiveTab("gallery")}
+                  >
+                    <Text style={activeTab === "gallery" ? styles.activeTabText : styles.tabText}>Galeri</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Tab Content - Keep existing tab content handlers but update the wrappers */}
+                {activeTab === "info" && (
                   <Animated.View 
                     style={[
-                      styles.infoRow, 
-                      isDesktop && styles.infoRowDesktop,
-                      { 
-                        opacity: infoAnimFade,
-                        transform: [{ 
-                          translateX: infoAnimFade.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [-30, 0]
-                          })
-                        }]
-                      }
+                      styles.tabContent, 
+                      isDesktop && styles.tabContentDesktop,
+                      { opacity: infoAnimFade, transform: [{ translateY: infoAnimSlide }] }
                     ]}
                   >
-                    <Ionicons name="people" size={isDesktop ? 24 : 20} color={Colors.primary} />
-                  <Text style={styles.infoLabel}>Populasi: </Text>
-                  <Text style={styles.infoValue}>{selectedRegion.population}</Text>
-                  </Animated.View>
-
-                {/* Lokasi */}
-                  <Animated.View 
-                    style={[
-                      styles.infoRow, 
-                      isDesktop && styles.infoRowDesktop,
-                      { 
-                        opacity: infoAnimFade,
-                        transform: [{ 
-                          translateX: infoAnimFade.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [30, 0]
-                          })
-                        }]
-                      }
-                    ]}
-                  >
-                    <Ionicons name="location-outline" size={isDesktop ? 24 : 20} color={Colors.primary} />
-                  <Text style={styles.infoLabel}>Lokasi: </Text>
-                  <Text style={styles.infoValue}>{selectedRegion.location}</Text>
-                  </Animated.View>
-                </Animated.View>
-
-                {/* Fakta Menarik */}
-                <Animated.View 
-                  style={[
-                    styles.factsSection, 
-                    isDesktop && styles.factsSectionDesktop,
-                    { 
-                      opacity: infoAnimFade,
-                      transform: [{ 
-                        translateY: infoAnimFade.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [40, 0]
-                        })
-                      }]
-                    }
-                  ]}
-                >
-                  <Animated.Text 
-                    style={[
-                      styles.factsTitle, 
-                      isDesktop && styles.factsTitleDesktop,
-                      { 
-                        opacity: infoAnimFade,
-                        transform: [{ 
-                          scale: infoAnimFade.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.9, 1]
-                          })
-                        }]
-                      }
-                    ]}
-                  >
-                    Fakta Menarik:
-                  </Animated.Text>
-                  <View style={isDesktop && styles.factsGridDesktop}>
-                  {selectedRegion.funFacts.map((fact, index) => (
-                      <Animated.View 
-                        key={index} 
+                    {/* Keep existing info tab content */}
+                    <Animated.View 
+                      style={[
+                        styles.cardContainer, 
+                        isDesktop && styles.cardContainerDesktop,
+                        { 
+                          opacity: infoAnimFade,
+                          transform: [{ 
+                            translateY: infoAnimFade.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [30, 0]
+                            })
+                          }]
+                        }
+                      ]}
+                    >
+                      <Animated.Text 
                         style={[
-                          styles.factItem, 
-                          isDesktop && styles.factItemDesktop,
+                          styles.description, 
+                          isDesktop && styles.descriptionDesktop,
                           { 
                             opacity: infoAnimFade,
                             transform: [{ 
                               translateY: infoAnimFade.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [30 + (index * 15), 0]
+                                outputRange: [20, 0]
                               })
                             }]
                           }
                         ]}
                       >
-                        <Text style={[styles.factText, isDesktop && styles.factTextDesktop]}>• {fact}</Text>
-                      </Animated.View>
-                  ))}
-                </View>
-                </Animated.View>
-              </Animated.View>
-            </Animated.View>
-          )}
+                        {selectedRegion.description}
+                      </Animated.Text>
 
-          {activeTab === "culture" && (
-            <Animated.View 
-              style={[
-                styles.tabContent, 
-                isDesktop && styles.tabContentDesktop,
-                { opacity: cultureAnimFade, transform: [{ translateY: cultureAnimSlide }] }
-              ]}
-            >
-              <Text style={[styles.sectionTitle, isDesktop && styles.sectionTitleDesktop]}>
-                Budaya {selectedRegion.name}
-              </Text>
-              
-              <View style={isDesktop && styles.cultureGridDesktop}>
-              {selectedRegion.culture.map((item, index) => (
+                      <Animated.View 
+                        style={[
+                          styles.infoContainer, 
+                          isDesktop && styles.infoContainerDesktop,
+                          { 
+                            opacity: infoAnimFade,
+                            transform: [{ 
+                              translateY: infoAnimFade.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [25, 0]
+                              })
+                            }]
+                          }
+                        ]}
+                      >
+                      {/* Populasi */}
+                        <Animated.View 
+                          style={[
+                            styles.infoRow, 
+                            isDesktop && styles.infoRowDesktop,
+                            { 
+                              opacity: infoAnimFade,
+                              transform: [{ 
+                                translateX: infoAnimFade.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [-30, 0]
+                                })
+                              }]
+                            }
+                          ]}
+                        >
+                          <Ionicons name="people" size={isDesktop ? 24 : 20} color={Colors.primary} />
+                        <Text style={styles.infoLabel}>Populasi: </Text>
+                        <Text style={styles.infoValue}>{selectedRegion.population}</Text>
+                        </Animated.View>
+
+                      {/* Lokasi */}
+                        <Animated.View 
+                          style={[
+                            styles.infoRow, 
+                            isDesktop && styles.infoRowDesktop,
+                            { 
+                              opacity: infoAnimFade,
+                              transform: [{ 
+                                translateX: infoAnimFade.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [30, 0]
+                                })
+                              }]
+                            }
+                          ]}
+                        >
+                          <Ionicons name="location-outline" size={isDesktop ? 24 : 20} color={Colors.primary} />
+                        <Text style={styles.infoLabel}>Lokasi: </Text>
+                        <Text style={styles.infoValue}>{selectedRegion.location}</Text>
+                        </Animated.View>
+                      </Animated.View>
+
+                      {/* Fakta Menarik */}
+                      <Animated.View 
+                        style={[
+                          styles.factsSection, 
+                          isDesktop && styles.factsSectionDesktop,
+                          { 
+                            opacity: infoAnimFade,
+                            transform: [{ 
+                              translateY: infoAnimFade.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [40, 0]
+                              })
+                            }]
+                          }
+                        ]}
+                      >
+                        <Animated.Text 
+                          style={[
+                            styles.factsTitle, 
+                            isDesktop && styles.factsTitleDesktop,
+                            { 
+                              opacity: infoAnimFade,
+                              transform: [{ 
+                                scale: infoAnimFade.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0.9, 1]
+                                })
+                              }]
+                            }
+                          ]}
+                        >
+                          Fakta Menarik:
+                        </Animated.Text>
+                        <View style={[isDesktop && styles.factsGridDesktop, styles.factsWrapper]}>
+                          {selectedRegion.funFacts.map((fact, index) => (
+                            <Animated.View 
+                              key={index} 
+                              style={[
+                                styles.factItem, 
+                                isDesktop && styles.factItemDesktop,
+                                { 
+                                  opacity: infoAnimFade,
+                                  transform: [{ 
+                                    translateY: infoAnimFade.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [30 + (index * 15), 0]
+                                    })
+                                  }]
+                                }
+                              ]}
+                            >
+                              <Text style={[styles.factText, isDesktop && styles.factTextDesktop]}>• {fact}</Text>
+                            </Animated.View>
+                          ))}
+                        </View>
+                      </Animated.View>
+                    </Animated.View>
+                  </Animated.View>
+                )}
+
+                {activeTab === "culture" && (
                   <Animated.View 
-                    key={index} 
                     style={[
-                      styles.cultureItem,
-                      isDesktop 
-                        ? styles.cultureItemDesktop 
-                        : (index % 2 === 0 ? styles.cultureItemImageLeft : styles.cultureItemImageRight),
-                      { 
-                        opacity: cultureAnimFade, 
-                        transform: [{ 
-                          translateY: cultureAnimFade.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [30 + (index * 10), 0]
-                          })
-                        }]
-                      }
+                      styles.tabContent, 
+                      isDesktop && styles.tabContentDesktop,
+                      { opacity: cultureAnimFade, transform: [{ translateY: cultureAnimSlide }] }
                     ]}
                   >
-                    <Image 
-                      source={item.image} 
-                      style={[styles.cultureImage, isDesktop && styles.cultureImageDesktop]} 
-                      resizeMode="cover"
-                    />
-                    <View style={[styles.cultureTextContainer, isDesktop && styles.cultureTextContainerDesktop]}>
-                      <Text style={[styles.cultureName, isDesktop && styles.cultureNameDesktop]}>
-                        {item.name}
-                      </Text>
-                      <Text style={[styles.cultureDescription, isDesktop && styles.cultureDescriptionDesktop]}>
-                        {item.description}
-                  </Text>
-                </View>
-                  </Animated.View>
-              ))}
-            </View>
-            </Animated.View>
-          )}
-
-          {activeTab === "gallery" && (
-            <Animated.View 
-              style={[
-                styles.tabContent, 
-                isDesktop && styles.tabContentDesktop,
-                { opacity: galleryAnimFade, transform: [{ translateY: galleryAnimSlide }] }
-              ]}
-            >
-              <Text style={[styles.sectionTitle, isDesktop && styles.sectionTitleDesktop]}>
-                Galeri Foto
-              </Text>
-              <View style={[
-                styles.galleryContainer, 
-                isDesktop && styles.galleryContainerDesktop
-              ]}>
-                {createGalleryColumns(selectedRegion.photos, isDesktop ? 4 : 2).map((column, columnIndex) => (
-                  <View key={columnIndex} style={styles.galleryColumn}>
-                    {column.map((photo, photoIndex) => (
-                      <Animated.View
-                        key={photoIndex}
-                        style={{
-                          opacity: galleryAnimFade,
-                          transform: [{ 
-                            translateY: galleryAnimFade.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [30 + ((columnIndex + photoIndex) * 15), 0]
-                            })
-                          }]
-                        }}
-                      >
-                        <HoverableComponent
+                    <Text style={[styles.sectionTitle, isDesktop && styles.sectionTitleDesktop]}>
+                      Budaya {selectedRegion.name}
+                    </Text>
+                    
+                    <View style={[styles.cultureGridDesktop, styles.contentWrapper]}>
+                    {selectedRegion.culture.map((item, index) => (
+                        <Animated.View 
+                          key={index} 
                           style={[
-                            styles.galleryImageWrapper,
-                            hoveredGallery === (columnIndex * 100 + photoIndex) && styles.galleryImageHover
+                            styles.cultureItem,
+                            isDesktop 
+                              ? styles.cultureItemDesktop 
+                              : (index % 2 === 0 ? styles.cultureItemImageLeft : styles.cultureItemImageRight),
+                            { 
+                              opacity: cultureAnimFade, 
+                              transform: [{ 
+                                translateY: cultureAnimFade.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [30 + (index * 10), 0]
+                                })
+                              }]
+                            }
                           ]}
-                          onPress={() => {}}
-                          onHoverIn={() => setHoveredGallery(columnIndex * 100 + photoIndex)}
-                          onHoverOut={() => setHoveredGallery(null)}
                         >
-                          <Image
-                            source={photo.url}
-                            style={[
-                              styles.galleryImage,
-                              photo.type === 'landscape' && styles.galleryImageLandscape,
-                              photo.type === 'portrait' && styles.galleryImagePortrait,
-                              photo.type === 'square' && styles.galleryImageSquare,
-                            ]}
+                          <Image 
+                            source={item.image} 
+                            style={[styles.cultureImage, isDesktop && styles.cultureImageDesktop]} 
                             resizeMode="cover"
                           />
-                          {photo.caption && (
-                            <View style={styles.captionOverlay}>
-                              <Text style={styles.captionText}>{photo.caption}</Text>
-                            </View>
-                          )}
-                        </HoverableComponent>
-                      </Animated.View>
+                          <View style={[styles.cultureTextContainer, isDesktop && styles.cultureTextContainerDesktop]}>
+                            <Text style={[styles.cultureName, isDesktop && styles.cultureNameDesktop]}>
+                              {item.name}
+                            </Text>
+                            <Text style={[styles.cultureDescription, isDesktop && styles.cultureDescriptionDesktop]}>
+                              {item.description}
+                        </Text>
+                      </View>
+                        </Animated.View>
                     ))}
-                  </View>
-                ))}
+                    </View>
+                  </Animated.View>
+                )}
+
+                {activeTab === "culinary" && (
+                  <Animated.View 
+                    style={[
+                      styles.tabContent, 
+                      isDesktop && styles.tabContentDesktop,
+                      { opacity: cultureAnimFade, transform: [{ translateY: cultureAnimSlide }] }
+                    ]}
+                  >
+                    <Text style={[styles.sectionTitle, isDesktop && styles.sectionTitleDesktop]}>
+                      Kuliner {selectedRegion.name}
+                    </Text>
+                    
+                    <View style={[styles.cultureGridDesktop, styles.contentWrapper]}>
+                      {selectedRegion.culinary.map((item, index) => (
+                        <Animated.View 
+                          key={index} 
+                          style={[
+                            styles.cultureItem,
+                            isDesktop 
+                              ? styles.cultureItemDesktop 
+                              : (index % 2 === 0 ? styles.cultureItemImageLeft : styles.cultureItemImageRight),
+                            { 
+                              opacity: cultureAnimFade, 
+                              transform: [{ 
+                                translateY: cultureAnimFade.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [30 + (index * 10), 0]
+                                })
+                              }]
+                            }
+                          ]}
+                        >
+                          <Image 
+                            source={item.image} 
+                            style={[styles.cultureImage, isDesktop && styles.cultureImageDesktop]} 
+                            resizeMode="cover"
+                          />
+                          <View style={[styles.cultureTextContainer, isDesktop && styles.cultureTextContainerDesktop]}>
+                            <Text style={[styles.cultureName, isDesktop && styles.cultureNameDesktop]}>
+                              {item.name}
+                            </Text>
+                            <Text style={[styles.cultureDescription, isDesktop && styles.cultureDescriptionDesktop]}>
+                              {item.description}
+                            </Text>
+                            {item.origin && (
+                              <Text style={[styles.culinaryOrigin, isDesktop && styles.culinaryOriginDesktop]}>
+                                <Text style={styles.culinaryOriginLabel}>Asal: </Text>
+                                {item.origin}
+                              </Text>
+                            )}
+                          </View>
+                        </Animated.View>
+                      ))}
+                    </View>
+                  </Animated.View>
+                )}
+
+                {activeTab === "gallery" && (
+                  <Animated.View 
+                    style={[
+                      styles.tabContent, 
+                      isDesktop && styles.tabContentDesktop,
+                      { opacity: galleryAnimFade, transform: [{ translateY: galleryAnimSlide }] }
+                    ]}
+                  >
+                    <Text style={[styles.sectionTitle, isDesktop && styles.sectionTitleDesktop]}>
+                      Galeri Foto
+                    </Text>
+                    <View style={[
+                      styles.galleryContainer, 
+                      isDesktop && styles.galleryContainerDesktop
+                    ]}>
+                      {createGalleryColumns(selectedRegion.photos, isDesktop ? 3 : 2).map((column, columnIndex) => (
+                        <View key={columnIndex} style={styles.galleryColumn}>
+                          {column.map((photo, photoIndex) => (
+                            <Animated.View
+                              key={photoIndex}
+                              style={{
+                                opacity: galleryAnimFade,
+                                transform: [{ 
+                                  translateY: galleryAnimFade.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [30 + ((columnIndex + photoIndex) * 15), 0]
+                                  })
+                                }]
+                              }}
+                            >
+                              <HoverableComponent
+                                style={[
+                                  styles.galleryImageWrapper,
+                                  hoveredGallery === (columnIndex * 100 + photoIndex) && styles.galleryImageHover
+                                ]}
+                                onPress={() => {}}
+                                onHoverIn={() => setHoveredGallery(columnIndex * 100 + photoIndex)}
+                                onHoverOut={() => setHoveredGallery(null)}
+                              >
+                                <View style={[
+                                  styles.galleryImageContainer,
+                                  photo.type === 'landscape' && styles.galleryImageContainerLandscape,
+                                  photo.type === 'portrait' && styles.galleryImageContainerPortrait,
+                                  photo.type === 'square' && styles.galleryImageContainerSquare,
+                                ]}>
+                                  <Image
+                                    source={photo.url}
+                                    style={styles.galleryImage}
+                                    resizeMode="cover"
+                                  />
+                                </View>
+                                {photo.caption && (
+                                  <View style={styles.captionOverlay}>
+                                    <Text style={styles.captionText}>{photo.caption}</Text>
+                                  </View>
+                                )}
+                              </HoverableComponent>
+                            </Animated.View>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  </Animated.View>
+                )}
               </View>
-            </Animated.View>
-          )}
+            </View>
+          </View>
         </ScrollView>
       </Layout>
     );
@@ -895,44 +1698,72 @@ export default function ExploreScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Section */}
-        <ImageBackground
-          source={getLocalImage(0)}
-          style={[styles.heroBackground, isDesktop && styles.heroBackgroundDesktop]}
-          imageStyle={{ opacity: 0.85 }}
-        >
-          <View style={styles.heroOverlay}>
-            <Animated.View 
-              style={[
-                styles.heroContent,
-                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-              ]}
-            >
-              <Text style={styles.heroTitle}>Temukan Keindahan</Text>
-              <Text style={styles.heroSubtitle}>Jelajahi Kalimantan Timur</Text>
-              <View style={styles.heroSearchContainer}>
-                <View style={styles.searchBar}>
-                  <Ionicons name="search" size={20} color={Colors.primary} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Cari daerah atau budaya..."
-                    placeholderTextColor="#8a8a8a"
-                    value={searchQuery}
-                    onChangeText={handleSearch}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity 
-                      style={styles.clearSearchButton}
-                      onPress={() => handleSearch('')}
-                    >
-                      <Ionicons name="close-circle" size={20} color={Colors.primary} />
-                    </TouchableOpacity>
-                  )}
+        {/* Hero Section - Simplified for reliable playback */}
+        {!selectedRegion && (
+          <View style={[styles.heroBackground, isDesktop && styles.heroBackgroundDesktop]}>
+            <Video
+              ref={videoRef}
+              source={require('../../assets/videos/HeroEksplore.mp4')}
+              style={[styles.heroVideo, isDesktop && styles.heroVideoDesktop]}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay={isFocused}
+              isLooping
+              isMuted={isMuted}
+              useNativeControls={false}
+              onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                if (status.isLoaded) {
+                  setIsPlaying(status.isPlaying);
+                }
+              }}
+            />
+            <View style={styles.heroOverlay}>
+              <Animated.View 
+                style={[
+                  styles.heroContent,
+                  { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                ]}
+              >
+                <Text style={styles.heroTitle}>Temukan Keindahan</Text>
+                <Text style={styles.heroSubtitle}>Jelajahi Kalimantan Timur</Text>
+                <View style={styles.heroSearchContainer}>
+                  <View style={styles.searchBar}>
+                    <Ionicons name="search" size={20} color={Colors.primary} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Cari daerah atau budaya..."
+                      placeholderTextColor="#8a8a8a"
+                      value={searchQuery}
+                      onChangeText={handleSearch}
+                    />
+                    {searchQuery.length > 0 && (
+                      <TouchableOpacity 
+                        style={styles.clearSearchButton}
+                        onPress={() => handleSearch('')}
+                      >
+                        <Ionicons name="close-circle" size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </Animated.View>
+              </Animated.View>
+            </View>
+            
+            {/* Add audio toggle button */}
+            <TouchableOpacity
+              style={[
+                styles.audioToggleButton,
+                isDesktop ? styles.audioToggleButtonDesktop : styles.audioToggleButtonMobile
+              ]}
+              onPress={handleToggleMute}
+            >
+              <Ionicons
+                name={isMuted ? "volume-mute" : "volume-high"}
+                size={isDesktop ? 24 : 18}
+                color="white"
+              />
+            </TouchableOpacity>
           </View>
-        </ImageBackground>
+        )}
 
         {/* Search Results Modal */}
         {searchModalVisible && (
@@ -1059,6 +1890,67 @@ export default function ExploreScreen() {
           </>
         )}
 
+        {/* Category Results Modal */}
+        {selectedCategory && categoryResults && (
+          <View style={styles.categoryResultsContainer}>
+            <View style={styles.categoryResultsHeader}>
+              <Text style={styles.categoryResultsTitle}>
+                {selectedCategory} di Kalimantan Timur
+              </Text>
+              <TouchableOpacity 
+                onPress={closeCategory}
+                style={styles.closeCategoryButton}
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.categoryResultsScroll}
+              showsVerticalScrollIndicator={true}
+            >
+              {categoryResults.items.length > 0 ? (
+                <View style={styles.categoryResultsList}>
+                  {categoryResults.items.map((result, index) => (
+                    <TouchableOpacity 
+                      key={index} 
+                      style={styles.categoryResultItem}
+                      onPress={() => navigateToRegionWithCategory(result.regionId, categoryResults.type)}
+                    >
+                      <Image 
+                        source={result.item.image} 
+                        style={styles.categoryResultImage} 
+                        resizeMode="cover"
+                      />
+                      <View style={styles.categoryResultContent}>
+                        <Text style={styles.categoryResultName}>{result.item.name}</Text>
+                        <Text style={styles.categoryResultRegion}>
+                          <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                          {' '}{result.regionName}
+                        </Text>
+                        <Text 
+                          style={styles.categoryResultDescription}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
+                          {result.item.description}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.noResultsInModal}>
+                  <Ionicons name="search-outline" size={60} color={`${Colors.primary}60`} />
+                  <Text style={styles.noResultsText}>
+                    Tidak ditemukan hasil untuk "{selectedCategory}"
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Main Content */}
         <View style={[styles.mainContent, isDesktop && styles.mainContentDesktop]}>
           {/* Search Results Section */}
@@ -1089,7 +1981,7 @@ export default function ExploreScreen() {
                         <View style={{width: '100%', height: '100%', backgroundColor: '#555'}}>
                           {region.id === "5" ? (
                             <Image 
-                              source={bontangImage}
+                              source={defaultHeroImage}
                               style={{width: '100%', height: '100%'}}
                               resizeMode="cover"
                             />
@@ -1131,11 +2023,7 @@ export default function ExploreScreen() {
               {/* Featured Section */}
               <View style={styles.featuredSection}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionHeaderTitle}>Daerah Unggulan</Text>
-                  <TouchableOpacity style={styles.viewAllButton}>
-                    <Text style={styles.viewAllText}>Lihat Semua</Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
-                  </TouchableOpacity>
+                  <Text style={styles.sectionHeaderTitle}>Daerah Pioritas 3T</Text>
                 </View>
                 
                 <ScrollView 
@@ -1143,7 +2031,7 @@ export default function ExploreScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.featuredScrollContent}
                 >
-                  {regions.map((region, index) => (
+                  {regions.slice(0, 4).map((region, index) => (
                     <Animated.View 
                       key={region.id}
                       ref={(el) => {
@@ -1175,7 +2063,7 @@ export default function ExploreScreen() {
                       >
                         {region.id === "5" ? (
                           <Image 
-                            source={bontangImage}
+                            source={defaultHeroImage}
                             style={{width: '100%', height: 150}}
                             resizeMode="cover"
                           />
@@ -1208,7 +2096,7 @@ export default function ExploreScreen() {
               <View style={styles.categoriesSection}>
                 <Text style={styles.categoriesSectionTitle}>Jelajahi Berdasarkan Kategori</Text>
                 <View style={[styles.categoriesGrid, isDesktop && styles.categoriesGridDesktop]}>
-                  {['Tarian', 'Musik', 'Kerajinan', 'Kuliner', 'Festival', 'Arsitektur'].map((category, index) => (
+                  {['Tarian', 'Kuliner', 'Festival'].map((category, index) => (
                     <Animated.View 
                       key={index}
                       ref={(el) => {
@@ -1236,7 +2124,7 @@ export default function ExploreScreen() {
                     >
                       <HoverableComponent 
                         style={styles.cardTouchable}
-                        onPress={() => {}}
+                        onPress={() => filterByCategory(category)}
                         onHoverIn={() => setHoveredCategory(index)}
                         onHoverOut={() => setHoveredCategory(null)}
                       >
@@ -1300,7 +2188,7 @@ export default function ExploreScreen() {
                             <View style={{width: '100%', height: '100%', backgroundColor: '#555'}}>
                               {region.id === "5" ? (
                                 <Image 
-                                  source={bontangImage}
+                                  source={defaultHeroImage}
                                   style={{width: '100%', height: '100%'}}
                                   resizeMode="cover"
                                 />
@@ -1357,7 +2245,7 @@ export default function ExploreScreen() {
                           >
                             {region.id === "5" ? (
                               <Image 
-                                source={bontangImage}
+                                source={defaultHeroImage}
                                 style={[styles.regionImage]}
                                 resizeMode="cover"
                               />
@@ -1451,31 +2339,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   contentContainer: {
-    paddingBottom: -50,
+    paddingBottom: 40,
   },
   header: {
     marginBottom: 16,
   },
   backButton: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   backButtonText: {
     fontSize: 16,
     color: Colors.primary,
-    fontWeight: "500",
-  },
-  backButtonContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${Colors.primary}10`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    marginLeft: 8,
+    fontWeight: '500',
   },
   title: {
     fontSize: 24,
@@ -1483,40 +2361,70 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 16,
   },
+  titleDesktop: {
+    fontSize: 32,
+    marginBottom: 24,
+  },
 
   // Hero section
   heroBackground: {
     height: 300,
     width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
   },
   heroBackgroundDesktop: {
     height: 500,
   },
+  heroVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    width: '100%',
+    height: '100%',
+  },
+  heroVideoDesktop: {
+    height: '100%',
+  },
   heroImageContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    width: '100%',
+    overflow: 'hidden',
     marginBottom: 16,
+    borderRadius: 15,
+    alignItems: 'center',
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   heroImageContainerDesktop: {
     marginBottom: 30,
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
   heroImage: {
-    width: 600,
-    height: 250,
+    width: '100%',
+    height: 200,
     borderRadius: 15,
   },
   heroImageDesktop: {
-    width: '90%',
+    width: '100%',
     height: 400,
     borderRadius: 20,
-    maxWidth: 1200,
   },
   heroOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     height: '100%',
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   heroContent: {
     alignItems: 'center',
@@ -1551,14 +2459,13 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    width: '100%',
+    paddingHorizontal: 0,
   },
   tabBarDesktop: {
-    width: '80%',
-    maxWidth: 1000,
-    alignSelf: 'center',
     marginBottom: 30,
   },
   tab: {
@@ -1567,7 +2474,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 10,
-    marginHorizontal: 5,
+    marginHorizontal: 4,
     backgroundColor: Colors.background,
   },
   tabDesktop: {
@@ -1597,6 +2504,7 @@ const styles = StyleSheet.create({
   tabContent: {
     paddingHorizontal: 16,
     paddingVertical: 20,
+    width: '100%',
   },
   tabContentDesktop: {
     paddingHorizontal: 40,
@@ -1616,14 +2524,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginHorizontal: 8,
+    width: '100%',
   },
   cardContainerDesktop: {
-    padding: 40,
+    padding: 30,
     borderRadius: 20,
     marginBottom: 30,
-    maxWidth: 1200,
-    alignSelf: 'center',
+    width: '100%',
   },
   description: {
     fontSize: 16,
@@ -1633,6 +2540,7 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
     letterSpacing: 0.3,
     fontWeight: '400',
+    width: '100%',
   },
   descriptionDesktop: {
     fontSize: 18,
@@ -1643,6 +2551,7 @@ const styles = StyleSheet.create({
   // Info section
   infoContainer: {
     width: '100%',
+    marginBottom: 20,
   },
   infoContainerDesktop: {
     flexDirection: 'row',
@@ -1695,6 +2604,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 4,
+    width: '100%',
   },
   factsSectionDesktop: {
     padding: 30,
@@ -1718,6 +2628,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    width: '100%',
   },
   factItem: {
     marginBottom: 12,
@@ -1731,11 +2642,13 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: Colors.border,
+    width: '100%',
   },
   factItemDesktop: {
     width: '48%',
     marginBottom: 16,
     padding: 20,
+    borderRadius: 12,
   },
   factText: {
     fontSize: 15,
@@ -1750,15 +2663,16 @@ const styles = StyleSheet.create({
   
   // Section headers
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
     color: Colors.text,
-    marginBottom: 16,
+    marginBottom: 20,
+    marginTop: 0,
+    textAlign: 'left',
   },
   sectionTitleDesktop: {
     fontSize: 24,
     marginBottom: 24,
-    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1787,6 +2701,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 1200,
   },
   cultureItem: {
     marginBottom: 20,
@@ -1802,13 +2718,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+    height: 'auto',
+    width: '100%',
   },
   cultureItemDesktop: {
     width: '48%',
-    marginBottom: 30,
+    marginBottom: 24,
     flexDirection: 'column',
     borderRadius: 16,
-    height: 'auto',
   },
   cultureItemImageLeft: {
     flexDirection: 'row',
@@ -1817,13 +2734,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
   },
   cultureImage: {
-    width: 160,
-    height: 160,
+    width: 140,
+    height: 140,
     borderRadius: 0,
   },
   cultureImageDesktop: {
     width: '100%',
-    height: 250,
+    height: 240,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     borderBottomLeftRadius: 0,
@@ -1835,7 +2752,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cultureTextContainerDesktop: {
-    padding: 24,
+    padding: 20,
+    minHeight: 150,
   },
   cultureName: {
     fontSize: 18,
@@ -1844,7 +2762,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cultureNameDesktop: {
-    fontSize: 22,
+    fontSize: 20,
     marginBottom: 12,
   },
   cultureDescription: {
@@ -1862,6 +2780,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 0,
   },
   galleryContainerDesktop: {
     flexDirection: 'row',
@@ -1874,14 +2793,36 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   galleryImageWrapper: {
-    marginBottom: 8,
+    marginBottom: 16,
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  galleryImageContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: Colors.lightBackground,
+  },
+  galleryImageContainerLandscape: {
+    aspectRatio: 16/9,
+  },
+  galleryImageContainerPortrait: {
+    aspectRatio: 2/3,
+  },
+  galleryImageContainerSquare: {
+    aspectRatio: 1,
   },
   galleryImage: {
     width: '100%',
-    borderRadius: 12,
+    height: '100%',
   },
   galleryImageDesktop: {
     width: '31%',
@@ -1903,14 +2844,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 8,
-    paddingBottom: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   captionText: {
     color: Colors.textDark,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
   
@@ -2262,8 +3203,12 @@ const styles = StyleSheet.create({
   
   // Gallery image hover effects
   galleryImageHover: Platform.OS === 'web' ? {
-    transform: [{ scale: 1.05 }],
-    opacity: 0.9,
+    transform: [{ scale: 1.03 }],
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    zIndex: 2,
   } : {},
 
   // Search modal styles
@@ -2390,5 +3335,190 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
     zIndex: 999,
+  },
+  // Add styles for audio toggle button
+  audioToggleButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  audioToggleButtonDesktop: {
+    width: 48,
+    height: 48,
+  },
+  audioToggleButtonMobile: {
+    width: 36,
+    height: 36,
+    bottom: 15,
+    right: 15,
+  },
+  
+  // Add culinary styles
+  culinaryOrigin: {
+    fontSize: 13,
+    color: Colors.lightText,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  culinaryOriginDesktop: {
+    fontSize: 14,
+    marginTop: 12,
+  },
+  culinaryOriginLabel: {
+    fontWeight: 'bold',
+  },
+  
+  // Category results styles
+  categoryResultsContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    margin: 20,
+    marginTop: 0,
+    overflow: 'hidden',
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.primary,
+  },
+  categoryResultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textDark,
+  },
+  closeCategoryButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryResultsScroll: {
+    maxHeight: 500,
+  },
+  categoryResultsList: {
+    padding: 16,
+  },
+  categoryResultItem: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: Colors.buttonBackground,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryResultImage: {
+    width: 120,
+    height: 120,
+  },
+  categoryResultContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
+  },
+  categoryResultName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  categoryResultRegion: {
+    fontSize: 14,
+    color: Colors.primary,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  categoryResultDescription: {
+    fontSize: 14,
+    color: Colors.lightText,
+    lineHeight: 20,
+  },
+  heroContainer: {
+    width: '100%',
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  heroContainerDesktop: {
+    marginBottom: 40,
+  },
+  contentWrapper: {
+    width: '100%',
+    flexDirection: 'column',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  contentWrapperDesktop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  factsWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  
+  // Add or update these styles to match StoriesScreen
+  storyContainer: {
+    padding: 20,
+    backgroundColor: Colors.background,
+  },
+  storyContainerDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    padding: 40,
+  },
+  storyHeader: {
+    marginBottom: 20,
+  },
+  storyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  storyTitleDesktop: {
+    fontSize: 32,
+  },
+  storyImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  storyImageDesktop: {
+    height: 300,
+  },
+  
+  // Desktop layout
+  desktopContentLayout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  desktopImageContainer: {
+    width: '40%',
+  },
+  desktopContentContainer: {
+    width: '56%',
   },
 });

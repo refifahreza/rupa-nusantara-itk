@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   Image,
   Platform,
-  Alert
+  Alert,
+  TextInput,
+  useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Layout from '../components/layout/Layout';
 import Colors from '../constants/Colors';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 // Define Quiz types
 interface QuizOption {
@@ -35,6 +38,10 @@ interface Quiz {
   icon: string;
   questions: QuizQuestion[];
 }
+
+type RootStackParamList = {
+  QuizTaking: { quiz: Quiz };
+};
 
 // Mock data for quizzes
 const quizzes: Quiz[] = [
@@ -163,6 +170,81 @@ const quizzes: Quiz[] = [
   },
 ];
 
+// Sample teacher-created quizzes (accessible via code)
+const teacherQuizzes: {[key: string]: Quiz} = {
+  'RPN1234': {
+    id: 'code-RPN1234',
+    title: 'Kuis Budaya Kaltim 1',
+    description: 'Pengetahuan dasar tentang budaya Kalimantan Timur',
+    icon: '🏮',
+    questions: [
+      {
+        id: '1',
+        question: 'Apa rumah adat suku Dayak?',
+        options: [
+          { id: 'a', text: 'Lamin', isCorrect: true },
+          { id: 'b', text: 'Tongkonan', isCorrect: false },
+          { id: 'c', text: 'Gadang', isCorrect: false },
+          { id: 'd', text: 'Lopo', isCorrect: false },
+        ],
+        explanation: 'Rumah Lamin adalah rumah adat suku Dayak yang biasanya dihuni oleh beberapa keluarga'
+      },
+      {
+        id: '2',
+        question: 'Alat musik tradisional dari Kalimantan Timur yang berbentuk seperti gamelan adalah...',
+        options: [
+          { id: 'a', text: 'Sampe', isCorrect: false },
+          { id: 'b', text: 'Kelentangan', isCorrect: true },
+          { id: 'c', text: 'Sapek', isCorrect: false },
+          { id: 'd', text: 'Kangkurang', isCorrect: false },
+        ],
+        explanation: 'Kelentangan adalah alat musik pukul tradisional dari Kalimantan Timur yang terbuat dari logam'
+      },
+      {
+        id: '3',
+        question: 'Apa nama pakaian adat pria dari suku Kutai?',
+        options: [
+          { id: 'a', text: 'Sapei Sapaq', isCorrect: false },
+          { id: 'b', text: 'Baju Hade', isCorrect: true },
+          { id: 'c', text: 'Baju Teluk Belanga', isCorrect: false },
+          { id: 'd', text: 'Perang', isCorrect: false },
+        ],
+        explanation: 'Baju Hade adalah pakaian adat pria suku Kutai yang biasanya berwarna kuning atau hitam'
+      },
+    ]
+  },
+  'RPN5678': {
+    id: 'code-RPN5678',
+    title: 'Kuis Bahasa Daerah Berau',
+    description: 'Kosakata dan ungkapan dalam bahasa Berau',
+    icon: '🔠',
+    questions: [
+      {
+        id: '1',
+        question: 'Apa arti kata "Betas" dalam bahasa Berau?',
+        options: [
+          { id: 'a', text: 'Air', isCorrect: false },
+          { id: 'b', text: 'Orang', isCorrect: true },
+          { id: 'c', text: 'Rumah', isCorrect: false },
+          { id: 'd', text: 'Makan', isCorrect: false },
+        ],
+        explanation: '"Betas" dalam bahasa Berau berarti "Orang"'
+      },
+      {
+        id: '2',
+        question: 'Bagaimana cara mengucapkan "Apa kabar?" dalam bahasa Berau?',
+        options: [
+          { id: 'a', text: 'Apakabar ikam?', isCorrect: false },
+          { id: 'b', text: 'Baik-baik jak?', isCorrect: true },
+          { id: 'c', text: 'Sehat-sehat kah?', isCorrect: false },
+          { id: 'd', text: 'Endak pian?', isCorrect: false },
+        ],
+        explanation: '"Baik-baik jak?" adalah ungkapan dalam bahasa Berau yang berarti "Apa kabar?"'
+      },
+    ]
+  }
+};
+
 export default function QuizScreen() {
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -170,381 +252,375 @@ export default function QuizScreen() {
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
+  const [quizCode, setQuizCode] = useState('');
+  const [quizCodeError, setQuizCodeError] = useState('');
+  const [viewMode, setViewMode] = useState<'browse' | 'enterCode'>('browse');
+  
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+  const isTablet = width > 480 && width <= 768;
   
   const startQuiz = (quiz: Quiz) => {
-    setSelectedQuiz(quiz);
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setQuizCompleted(false);
-    setSelectedOption(null);
-    setIsAnswered(false);
+    navigation.navigate('QuizTaking', { quiz });
   };
   
-  const handleOptionSelect = (optionId: string) => {
-    if (isAnswered) return;
-    
-    setSelectedOption(optionId);
-    setIsAnswered(true);
-    
-    const currentQuestion = selectedQuiz?.questions[currentQuestionIndex];
-    const selectedOptionObj = currentQuestion?.options.find(option => option.id === optionId);
-    
-    if (selectedOptionObj?.isCorrect) {
-      setScore(prevScore => prevScore + 1);
+  const handleCodeSubmit = () => {
+    if (!quizCode.trim()) {
+      setQuizCodeError('Harap masukkan kode kuis');
+      return;
     }
-  };
-  
-  const goToNextQuestion = () => {
-    if (!selectedQuiz) return;
     
-    if (currentQuestionIndex < selectedQuiz.questions.length - 1) {
-      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      setSelectedOption(null);
-      setIsAnswered(false);
+    // Check if the code exists in the teacherQuizzes
+    const quiz = teacherQuizzes[quizCode];
+    if (quiz) {
+      setQuizCodeError('');
+      // Start the quiz with the found quiz data
+      startQuiz(quiz);
     } else {
-      setQuizCompleted(true);
+      setQuizCodeError('Kode kuis tidak valid. Periksa kembali dan coba lagi.');
     }
   };
   
-  const restartQuiz = () => {
-    if (!selectedQuiz) return;
-    
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setQuizCompleted(false);
-    setSelectedOption(null);
-    setIsAnswered(false);
-  };
-  
-  const exitQuiz = () => {
-    setSelectedQuiz(null);
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setQuizCompleted(false);
-    setSelectedOption(null);
-    setIsAnswered(false);
-  };
-  
-  if (selectedQuiz) {
-    if (quizCompleted) {
-      // Quiz Result Screen
-      return (
-        <Layout>
-          <ScrollView style={styles.container}>
-            <View style={styles.resultContainer}>
-              <Text style={styles.resultTitle}>Kuis Selesai!</Text>
-              <Text style={styles.resultScore}>
-                Skor Anda: {score}/{selectedQuiz.questions.length}
-              </Text>
-              
-              <View style={styles.resultMessage}>
-                {score === selectedQuiz.questions.length ? (
-                  <Text style={styles.perfectScoreText}>Sempurna! Anda menguasai materi ini dengan baik!</Text>
-                ) : score >= selectedQuiz.questions.length / 2 ? (
-                  <Text style={styles.goodScoreText}>Bagus! Anda memiliki pengetahuan yang baik!</Text>
-                ) : (
-                  <Text style={styles.lowScoreText}>Terus belajar! Coba lagi untuk meningkatkan skor Anda!</Text>
-                )}
-              </View>
-              
-              <View style={styles.resultActions}>
-                <TouchableOpacity style={styles.restartButton} onPress={restartQuiz}>
-                  <Text style={styles.restartButtonText}>Coba Lagi</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.exitButton} onPress={exitQuiz}>
-                  <Text style={styles.exitButtonText}>Kembali ke Daftar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </Layout>
-      );
-    }
-    
-    // Quiz Question Screen
-    const currentQuestion = selectedQuiz.questions[currentQuestionIndex];
-    
+  const renderCodeEntry = () => {
     return (
-      <Layout>
-        <ScrollView style={styles.container}>
-          <View style={styles.quizHeader}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={exitQuiz}
-            >
-              <Text style={styles.backButtonText}>← Kembali</Text>
-            </TouchableOpacity>
-            
-            <Text style={styles.quizTitle}>{selectedQuiz.title}</Text>
-            <Text style={styles.questionCounter}>
-              Pertanyaan {currentQuestionIndex + 1} dari {selectedQuiz.questions.length}
-            </Text>
+      <View style={styles.codeEntryContainer}>
+        <View style={styles.codeHeaderSection}>
+          <View style={styles.codeIconContainer}>
+            <Ionicons name="key-outline" size={48} color={Colors.primary} />
           </View>
-          
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>{currentQuestion.question}</Text>
-            
-            {currentQuestion.image && (
-              <Image 
-                source={{ uri: currentQuestion.image }}
-                style={styles.questionImage}
-                resizeMode="cover"
-              />
-            )}
-            
-            <View style={styles.optionsContainer}>
-              {currentQuestion.options.map(option => (
-                <TouchableOpacity 
-                  key={option.id}
-                  style={[
-                    styles.optionButton,
-                    selectedOption === option.id && (option.isCorrect ? styles.correctOption : styles.incorrectOption),
-                    isAnswered && option.isCorrect && styles.correctOption
-                  ]}
-                  onPress={() => handleOptionSelect(option.id)}
-                  disabled={isAnswered}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    selectedOption === option.id && (option.isCorrect ? styles.correctOptionText : styles.incorrectOptionText),
-                    isAnswered && option.isCorrect && styles.correctOptionText
-                  ]}>
-                    {option.id.toUpperCase()}. {option.text}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {isAnswered && (
-              <View style={styles.explanationContainer}>
-                <Text style={styles.explanationText}>
-                  {currentQuestion.explanation}
-                </Text>
-                <TouchableOpacity style={styles.nextButton} onPress={goToNextQuestion}>
-                  <Text style={styles.nextButtonText}>
-                    {currentQuestionIndex < selectedQuiz.questions.length - 1 ? 'Selanjutnya' : 'Lihat Hasil'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </Layout>
-    );
-  }
-  
-  // Quiz List Screen
-  return (
-    <Layout>
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Kuis Interaktif</Text>
-          <Text style={styles.headerSubtitle}>
-            Uji pengetahuan Anda tentang budaya dan bahasa Kalimantan Timur
+          <Text style={styles.codeTitle}>Masukkan Kode Kuis</Text>
+          <Text style={styles.codeSubtitle}>
+            Masukkan kode kuis yang diberikan oleh guru Anda untuk mengakses kuis
           </Text>
         </View>
         
-        <View style={styles.quizList}>
-          {quizzes.map(quiz => (
-            <TouchableOpacity 
+        <View style={[styles.codeInputSection, isDesktop && { maxWidth: 500, alignSelf: 'center', width: '100%' }]}>
+          <TextInput
+            style={styles.codeInput}
+            placeholder="Contoh: RPN1234"
+            value={quizCode}
+            onChangeText={(text) => {
+              setQuizCode(text.toUpperCase());
+              setQuizCodeError('');
+            }}
+            autoCapitalize="characters"
+            maxLength={7}
+          />
+          
+          {quizCodeError ? (
+            <Text style={styles.errorText}>{quizCodeError}</Text>
+          ) : null}
+          
+          <TouchableOpacity 
+            style={styles.submitCodeButton}
+            onPress={handleCodeSubmit}
+          >
+            <Text style={styles.submitCodeButtonText}>Mulai Kuis</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.switchViewButton}
+            onPress={() => setViewMode('browse')}
+          >
+            <Text style={styles.switchViewButtonText}>Jelajahi Kuis Tersedia</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+  
+  const renderQuizList = () => {
+    return (
+      <View style={[styles.container, isDesktop && { maxWidth: 1200, alignSelf: 'center', width: '100%' }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Kuis Tersedia</Text>
+          <TouchableOpacity 
+            style={styles.codeButton}
+            onPress={() => setViewMode('enterCode')}
+          >
+            <Ionicons name="key-outline" size={20} color="white" />
+            <Text style={styles.codeButtonText}>Masukkan Kode Kuis</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <Text style={styles.subHeader}>
+          Uji pengetahuan Anda tentang budaya dan bahasa Kalimantan Timur
+        </Text>
+        
+        <View style={isDesktop || isTablet ? styles.quizGridContainer : undefined}>
+          {quizzes.map((quiz) => (
+            <TouchableOpacity
               key={quiz.id}
-              style={styles.quizCard}
+              style={[styles.quizCard, (isDesktop || isTablet) && styles.quizCardGrid]}
               onPress={() => startQuiz(quiz)}
             >
-              <Text style={styles.quizIcon}>{quiz.icon}</Text>
-              <View style={styles.quizInfo}>
-                <Text style={styles.quizCardTitle}>{quiz.title}</Text>
-                <Text style={styles.quizCardDescription}>{quiz.description}</Text>
-                <Text style={styles.quizCardQuestionCount}>
-                  {quiz.questions.length} Pertanyaan
-                </Text>
+              <View style={styles.quizIconContainer}>
+                <Text style={styles.quizIcon}>{quiz.icon}</Text>
               </View>
-              <Text style={styles.startQuizText}>Mulai →</Text>
+              <View style={styles.quizInfo}>
+                <Text style={styles.quizTitle}>{quiz.title}</Text>
+                <Text style={styles.quizDescription}>{quiz.description}</Text>
+                <View style={styles.quizMeta}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="help-circle-outline" size={14} color={Colors.lightText} />
+                    <Text style={styles.metaText}>{quiz.questions.length} Pertanyaan</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={14} color={Colors.lightText} />
+                    <Text style={styles.metaText}>{quiz.questions.length * 1} Menit</Text>
+                  </View>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={Colors.primary} style={styles.quizArrow} />
             </TouchableOpacity>
           ))}
         </View>
+        
+        <View style={styles.recentlyCompletedSection}>
+          <Text style={styles.sectionTitle}>Kuis Terakhir Diselesaikan</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="checkbox-outline" size={48} color={Colors.primary + '40'} />
+            <Text style={styles.emptyStateText}>Belum ada kuis yang diselesaikan</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+  
+  return (
+    <Layout>
+      <ScrollView style={styles.scrollContainer}>
+        {viewMode === 'enterCode' ? renderCodeEntry() : renderQuizList()}
       </ScrollView>
     </Layout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
     flex: 1,
+    backgroundColor: Colors.background,
+  },
+  container: {
     padding: 16,
   },
   header: {
-    marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 8,
   },
-  headerSubtitle: {
-    fontSize: 14,
+  codeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  codeButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 15,
+  },
+  subHeader: {
+    fontSize: 15,
     color: Colors.lightText,
-    marginBottom: 16,
+    marginBottom: 24,
+    maxWidth: 600,
   },
-  quizList: {
-    marginBottom: 32,
+  quizGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   quizCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 16,
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
     elevation: 3,
   },
-  quizIcon: {
-    fontSize: 32,
+  quizCardGrid: {
+    width: '48%',
+    marginBottom: 20,
+  },
+  quizIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F0F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 16,
+  },
+  quizIcon: {
+    fontSize: 28,
   },
   quizInfo: {
     flex: 1,
   },
-  quizCardTitle: {
+  quizTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  quizCardDescription: {
+  quizDescription: {
     fontSize: 14,
+    color: Colors.text,
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  quizMeta: {
+    flexDirection: 'row',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  metaText: {
+    fontSize: 13,
     color: Colors.lightText,
-    marginBottom: 4,
+    marginLeft: 6,
   },
-  quizCardQuestionCount: {
-    fontSize: 12,
-    color: Colors.primary,
-    fontWeight: '500',
+  quizArrow: {
+    marginLeft: 8,
   },
-  startQuizText: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: 'bold',
+  recentlyCompletedSection: {
+    marginTop: 24,
   },
-  // Quiz Question Styles
-  quizHeader: {
-    marginBottom: 24,
-  },
-  backButton: {
-    marginBottom: 16,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: Colors.primary,
-    fontWeight: '500',
-  },
-  quizTitle: {
-    fontSize: 24,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  questionCounter: {
-    fontSize: 14,
-    color: Colors.lightText,
-  },
-  questionContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: Colors.cardShadow,
+  emptyState: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: Colors.lightText,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  // Code entry styles
+  codeEntryContainer: {
+    padding: 24,
+  },
+  codeHeaderSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  codeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  codeTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  codeSubtitle: {
+    fontSize: 15,
+    color: Colors.lightText,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    lineHeight: 22,
+    maxWidth: 500,
+  },
+  codeInputSection: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
     elevation: 3,
   },
-  questionText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  questionImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  optionsContainer: {
-    marginBottom: 16,
-  },
-  optionButton: {
-    backgroundColor: Colors.lightBackground,
-    borderRadius: 8,
+  codeInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
     padding: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 6,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
-  optionText: {
-    fontSize: 16,
-    color: Colors.text,
-  },
-  correctOption: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
-  },
-  incorrectOption: {
-    backgroundColor: '#FFEBEE',
-    borderColor: '#F44336',
-  },
-  correctOptionText: {
-    color: '#2E7D32',
-    fontWeight: 'bold',
-  },
-  incorrectOptionText: {
-    color: '#C62828',
-    fontWeight: 'bold',
-  },
-  explanationContainer: {
-    marginTop: 8,
-    padding: 16,
-    backgroundColor: Colors.lightBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  explanationText: {
+  errorText: {
     fontSize: 14,
-    color: Colors.text,
-    lineHeight: 20,
+    color: '#FF3B30',
     marginBottom: 16,
+    textAlign: 'center',
   },
-  nextButton: {
+  submitCodeButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  nextButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  submitCodeButtonText: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  // Result Styles
+  switchViewButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  switchViewButtonText: {
+    fontSize: 15,
+    color: Colors.primary,
+    fontWeight: 'bold',
+  },
+  // Quiz styles
   resultContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 16,
     alignItems: 'center',
   },
   resultTitle: {
@@ -554,68 +630,39 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   resultScore: {
-    fontSize: 36,
+    fontSize: 48,
     fontWeight: 'bold',
     color: Colors.primary,
     marginBottom: 24,
   },
   resultMessage: {
-    marginBottom: 24,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
     padding: 16,
-    backgroundColor: Colors.lightBackground,
-    borderRadius: 8,
     width: '100%',
-    alignItems: 'center',
+    marginBottom: 32,
   },
   perfectScoreText: {
     fontSize: 16,
-    color: '#2E7D32',
-    fontWeight: 'bold',
+    color: '#4CAF50',
     textAlign: 'center',
+    fontWeight: 'bold',
   },
   goodScoreText: {
     fontSize: 16,
     color: '#FF9800',
-    fontWeight: 'bold',
     textAlign: 'center',
+    fontWeight: 'bold',
   },
   lowScoreText: {
     fontSize: 16,
     color: '#F44336',
-    fontWeight: 'bold',
     textAlign: 'center',
+    fontWeight: 'bold',
   },
   resultActions: {
     flexDirection: 'row',
-    width: '100%',
     justifyContent: 'space-between',
-  },
-  restartButton: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  restartButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  exitButton: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginLeft: 8,
-  },
-  exitButtonText: {
-    color: Colors.text,
-    fontWeight: 'bold',
-    fontSize: 16,
+    width: '100%',
   },
 }); 

@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Layout from '../components/layout/Layout';
+import Header from '../components/layout/Header';
 import Colors from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { isAuthenticated, getCurrentUser, logoutUser } from '../utils/auth';
 
 // Define navigation param types
 type RootStackParamList = {
@@ -25,6 +27,11 @@ type RootStackParamList = {
   Stories: { storyId?: string };
   Explore: undefined;
   Quiz: undefined;
+  Auth: undefined;
+  Login: undefined;
+  Register: undefined;
+  StudentDashboard: undefined;
+  TeacherDashboard: undefined;
 };
 
 // Add interfaces for search data types
@@ -78,6 +85,13 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const [accountMenuVisible, setAccountMenuVisible] = useState(false);
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+
+  // Add ScrollView refs for horizontal navigation
+  const bahasaScrollRef = useRef<ScrollView>(null);
+  const funFactsScrollRef = useRef<ScrollView>(null);
+  const ceritaScrollRef = useRef<ScrollView>(null);
 
   // Search functionality states
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +106,92 @@ export default function HomeScreen() {
   const isDesktop = width > 768;
   // Tablet mode when width is between 481px and 768px
   const isTablet = width > 480 && width <= 768;
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = () => {
+    const authStatus = isAuthenticated();
+    setIsLoggedIn(authStatus);
+    
+    if (authStatus) {
+      setUserData(getCurrentUser());
+    }
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setIsLoggedIn(false);
+    setUserData(null);
+    setAccountMenuVisible(false);
+  };
+
+  const navigateToProtectedFeature = (feature: string) => {
+    if (isLoggedIn) {
+      // Navigate to the feature
+      navigation.navigate(feature as any);
+    } else {
+      // Show login prompt
+      setShowLoginPrompt(true);
+    }
+  };
+
+  // Login prompt modal state
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // Login Prompt Modal
+  const LoginPromptModal = () => (
+    <Modal
+      visible={showLoginPrompt}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowLoginPrompt(false)}
+    >
+      <TouchableWithoutFeedback onPress={() => setShowLoginPrompt(false)}>
+        <View style={styles.modalOverlay} />
+      </TouchableWithoutFeedback>
+      
+      <View style={styles.loginPromptContainer}>
+        <View style={styles.loginPromptContent}>
+          <Text style={styles.loginPromptTitle}>Masuk untuk Melanjutkan</Text>
+          <Text style={styles.loginPromptDescription}>
+            Anda perlu masuk atau mendaftar untuk mengakses fitur ini.
+          </Text>
+          
+          <View style={styles.loginPromptButtons}>
+            <TouchableOpacity 
+              style={styles.loginPromptLoginButton}
+              onPress={() => {
+                setShowLoginPrompt(false);
+                navigation.navigate('Login');
+              }}
+            >
+              <Text style={styles.loginPromptLoginText}>Masuk</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.loginPromptRegisterButton}
+              onPress={() => {
+                setShowLoginPrompt(false);
+                navigation.navigate('Register');
+              }}
+            >
+              <Text style={styles.loginPromptRegisterText}>Daftar</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.loginPromptCloseButton}
+            onPress={() => setShowLoginPrompt(false)}
+          >
+            <Text style={styles.loginPromptCloseText}>Nanti Saja</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   // Custom Search Input component to handle styling issues
   const CustomSearchInput = () => {
@@ -183,97 +283,205 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  // Account menu dropdown
+  // Account menu dropdown - modified to show logged in or guest options
   const AccountMenu = () => (
     <View style={styles.accountMenu}>
-      <View style={styles.accountMenuHeader}>
-        <View style={styles.accountAvatar}>
-          <Text style={styles.accountAvatarText}>DN</Text>
-        </View>
-        <View>
-          <Text style={styles.accountName}>Ditai Nusantara</Text>
-          <Text style={styles.accountEmail}>ditai@nusantara.id</Text>
-        </View>
-      </View>
-      <View style={styles.menuDivider} />
-      <TouchableOpacity style={styles.menuItem}>
-        <Ionicons name="person-outline" size={20} color={Colors.text} />
-        <Text style={styles.menuItemText}>Profil Saya</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem}>
-        <Ionicons name="settings-outline" size={20} color={Colors.text} />
-        <Text style={styles.menuItemText}>Pengaturan</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem}>
-        <Ionicons name="bookmark-outline" size={20} color={Colors.text} />
-        <Text style={styles.menuItemText}>Tersimpan</Text>
-      </TouchableOpacity>
-      <View style={styles.menuDivider} />
-      <TouchableOpacity style={styles.menuItem}>
-        <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-        <Text style={[styles.menuItemText, { color: "#FF3B30" }]}>Keluar</Text>
-      </TouchableOpacity>
+      {isLoggedIn ? (
+        // Logged in user menu
+        <>
+          <View style={styles.accountMenuHeader}>
+            <View style={styles.accountAvatar}>
+              <Text style={styles.accountAvatarText}>
+                {userData?.name?.charAt(0) || 'U'}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.accountName}>{userData?.name || 'User'}</Text>
+              <Text style={styles.accountEmail}>{userData?.email || 'user@example.com'}</Text>
+            </View>
+          </View>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              setAccountMenuVisible(false);
+              if (userData?.role === 'teacher') {
+                navigation.navigate('TeacherDashboard');
+              } else {
+                navigation.navigate('StudentDashboard');
+              }
+            }}
+          >
+            <Ionicons name="grid-outline" size={20} color={Colors.text} />
+            <Text style={styles.menuItemText}>Dashboard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="person-outline" size={20} color={Colors.text} />
+            <Text style={styles.menuItemText}>Profil Saya</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="settings-outline" size={20} color={Colors.text} />
+            <Text style={styles.menuItemText}>Pengaturan</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="bookmark-outline" size={20} color={Colors.text} />
+            <Text style={styles.menuItemText}>Tersimpan</Text>
+          </TouchableOpacity>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={[styles.menuItemText, { color: "#FF3B30" }]}>Keluar</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        // Guest user menu
+        <>
+          <View style={styles.accountMenuHeader}>
+            <View style={styles.accountAvatar}>
+              <Ionicons name="person-outline" size={24} color={Colors.primary} />
+            </View>
+            <View>
+              <Text style={styles.accountName}>Tamu</Text>
+              <Text style={styles.accountEmail}>Silakan masuk atau daftar</Text>
+            </View>
+          </View>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              setAccountMenuVisible(false);
+              navigation.navigate('Login');
+            }}
+          >
+            <Ionicons name="log-in-outline" size={20} color={Colors.primary} />
+            <Text style={[styles.menuItemText, { color: Colors.primary }]}>Masuk</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              setAccountMenuVisible(false);
+              navigation.navigate('Register');
+            }}
+          >
+            <Ionicons name="person-add-outline" size={20} color={Colors.text} />
+            <Text style={styles.menuItemText}>Daftar</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 
-  // Mobile menu dropdown
+  // Modified MobileMenu to match the style from StudentDashboardScreen
   const MobileMenu = () => (
-    <View style={styles.mobileMenuWrapper}>
+    <View style={styles.mobileMenuContainer}>
       <TouchableOpacity
         style={styles.mobileMenuBackdrop}
         activeOpacity={1}
         onPress={() => setMobileMenuVisible(false)}
       />
       <View style={styles.mobileMenu}>
-        <TouchableOpacity
-          style={styles.mobileMenuCloseButton}
-          onPress={() => setMobileMenuVisible(false)}
-        >
-          <Ionicons name="close" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        {/* <TouchableOpacity
-          style={styles.mobileMenuItem}
-          onPress={() => setMobileMenuVisible(false)}
-        >
-          <Ionicons name="compass-outline" size={20} color={Colors.text} style={styles.mobileMenuIcon} />
-          <Text style={styles.mobileMenuItemText}>Eksplorasi</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.mobileMenuItem}
-          onPress={() => setMobileMenuVisible(false)}
-        >
-          <Ionicons name="book-outline" size={20} color={Colors.text} style={styles.mobileMenuIcon} />
-          <Text style={styles.mobileMenuItemText}>Cerita Rakyat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.mobileMenuItem}
-          onPress={() => setMobileMenuVisible(false)}
-        >
-          <Ionicons name="language-outline" size={20} color={Colors.text} style={styles.mobileMenuIcon} />
-          <Text style={styles.mobileMenuItemText}>Kamus</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.mobileMenuItem}
-          onPress={() => setMobileMenuVisible(false)}
-        >
-          <Ionicons name="information-circle-outline" size={20} color={Colors.text} style={styles.mobileMenuIcon} />
-          <Text style={styles.mobileMenuItemText}>Tentang</Text>
-        </TouchableOpacity> */}
-        <View style={styles.menuDivider} />
-        <View style={styles.mobileMenuButtonsRow}>
-          <TouchableOpacity
-            style={styles.mobileLoginButton}
-            onPress={() => setMobileMenuVisible(false)}
-          >
-            <Text style={styles.mobileLoginButtonText}>Masuk</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.mobileRegisterButton}
-            onPress={() => setMobileMenuVisible(false)}
-          >
-            <Text style={styles.mobileRegisterButtonText}>Daftar</Text>
-          </TouchableOpacity>
+        <View style={styles.mobileMenuHeader}>
+          <View style={styles.avatarContainer}>
+            {isLoggedIn ? (
+              <Text style={styles.avatarText}>{userData?.name?.charAt(0) || 'U'}</Text>
+            ) : (
+              <Ionicons name="person-outline" size={24} color={Colors.primary} />
+            )}
+          </View>
+          <View>
+            <Text style={styles.userName}>{isLoggedIn ? userData?.name || 'User' : 'Tamu'}</Text>
+            <Text style={styles.userEmail}>
+              {isLoggedIn ? userData?.email || 'user@example.com' : 'Silakan masuk atau daftar'}
+            </Text>
+          </View>
         </View>
+        
+        <View style={styles.menuDivider} />
+        
+        {isLoggedIn ? (
+          // Logged in menu items
+          <>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                setMobileMenuVisible(false);
+                if (userData?.role === 'teacher') {
+                  navigation.navigate('TeacherDashboard');
+                } else {
+                  navigation.navigate('StudentDashboard');
+                }
+              }}
+            >
+              <Ionicons name="grid-outline" size={24} color={Colors.text} />
+              <Text style={styles.menuItemText}>Dashboard</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => setMobileMenuVisible(false)}
+            >
+              <Ionicons name="person-outline" size={24} color={Colors.text} />
+              <Text style={styles.menuItemText}>Profil Saya</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => setMobileMenuVisible(false)}
+            >
+              <Ionicons name="settings-outline" size={24} color={Colors.text} />
+              <Text style={styles.menuItemText}>Pengaturan</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => setMobileMenuVisible(false)}
+            >
+              <Ionicons name="help-circle-outline" size={24} color={Colors.text} />
+              <Text style={styles.menuItemText}>Bantuan</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.menuDivider} />
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                handleLogout();
+                setMobileMenuVisible(false);
+              }}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+              <Text style={[styles.menuItemText, { color: "#FF3B30" }]}>Keluar</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Guest menu items
+          <>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                setMobileMenuVisible(false);
+                navigation.navigate('Login');
+              }}
+            >
+              <Ionicons name="log-in-outline" size={24} color={Colors.primary} />
+              <Text style={[styles.menuItemText, { color: Colors.primary }]}>Masuk</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                setMobileMenuVisible(false);
+                navigation.navigate('Register');
+              }}
+            >
+              <Ionicons name="person-add-outline" size={24} color={Colors.text} />
+              <Text style={styles.menuItemText}>Daftar</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -373,6 +581,11 @@ export default function HomeScreen() {
     </>
   );
 
+  // Add the additional refs near the top with the other refs
+  const desktopBahasaScrollRef = useRef<ScrollView>(null);
+  const desktopFunFactsScrollRef = useRef<ScrollView>(null);
+  const desktopCeritaScrollRef = useRef<ScrollView>(null);
+
   return (
     <Layout>
       <ScrollView
@@ -380,63 +593,12 @@ export default function HomeScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Desktop Header */}
-        {isDesktop ? (
-          <View style={styles.desktopHeader}>
-            <View style={styles.row}>
-              <View style={styles.logoContainer}>
-                <Text style={styles.logo}>🌊</Text>
-              </View>
-              <Text style={styles.headerTitle}>Rupa Nusantara</Text>
-            </View>
-
-            <View style={styles.desktopNav}>
-              {renderNavItem('Eksplorasi', true)}
-              {renderNavItem('Cerita Rakyat')}
-              {renderNavItem('Kamus')}
-              {renderNavItem('Tentang')}
-            </View>
-
-            <View style={styles.row}>
-              <TouchableOpacity style={styles.headerButton}>
-                <Text style={styles.headerButtonText}>Masuk</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButtonPrimary}>
-                <Text style={styles.headerButtonTextPrimary}>Daftar</Text>
-              </TouchableOpacity>
-
-              {/* Account button with dropdown */}
-              <View>
-                <TouchableOpacity
-                  style={styles.accountButton}
-                  onPress={() => setAccountMenuVisible(!accountMenuVisible)}
-                >
-                  <Ionicons name="person-circle" size={28} color={Colors.primary} />
-                </TouchableOpacity>
-                {accountMenuVisible && <AccountMenu />}
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.header}>
-            <View style={styles.row}>
-              <View style={styles.logoContainer}>
-                <Text style={styles.logo}>🌊</Text>
-              </View>
-              <Text style={styles.headerTitle}>Rupa Nusantara</Text>
-            </View>
-
-            {/* Mobile menu button */}
-            <TouchableOpacity
-              style={styles.mobileMenuButton}
-              onPress={() => setMobileMenuVisible(!mobileMenuVisible)}
-            >
-              <Ionicons name={mobileMenuVisible ? "close" : "menu"} size={24} color={Colors.text} />
-            </TouchableOpacity>
-
-            {/* Mobile menu dropdown */}
-            {mobileMenuVisible && <MobileMenu />}
-          </View>
+        {/* Use the new Header component only in mobile mode */}
+        {!isDesktop && (
+          <Header 
+            showNavigation={false}
+            activeNavItem="Home"
+          />
         )}
 
         <View style={[
@@ -477,15 +639,10 @@ export default function HomeScreen() {
 
           {/* Content Layout */}
           <View style={[
-            isDesktop ? styles.twoColumnLayout : styles.singleColumnLayout,
+            styles.singleColumnLayout,
             isDesktop && styles.desktopContentWrapper
           ]}>
-            {/* Left Column */}
-            <View style={[
-              isDesktop ? styles.columnLeft : styles.fullWidth,
-              isTablet && styles.tabletColumn
-            ]}>
-
+            <View style={styles.fullWidth}>
               {/* Mobile Search Bar */}
               {!isDesktop && (
                 <View style={styles.searchBarContainer}>
@@ -494,9 +651,6 @@ export default function HomeScreen() {
                     <View style={styles.contributionTextContainer}>
                       <Text style={styles.contributionTitle}>Mari berkontribusi untuk negeri</Text>
                       <Text style={styles.contributionSubtitle}>dengan menjaga bahasa daerah di <Text style={styles.contributionHighlight}>KALTIM</Text></Text>
-                      {/* <TouchableOpacity style={styles.registerButton}>
-                          <Text style={styles.registerButtonText}>Daftar di sini</Text>
-                        </TouchableOpacity> */}
                     </View>
                     <View style={styles.contributionImageContainer}>
                       <Image
@@ -522,138 +676,324 @@ export default function HomeScreen() {
                   </View>
                 </View>
               )}
-              {/* Eksplorasi Hari Ini Section */}
+
+              {/* Kata Kata Hari Ini Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Eksplorasi Hari Ini</Text>
+                {isDesktop && (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Kata Kata Hari Ini</Text>
+                    <View style={styles.navigationButtons}>
+                      <TouchableOpacity style={styles.navButton}>
+                        <Ionicons name="chevron-back" size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.navButton}>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 {/* Word card */}
                 <View style={styles.contentCard}>
-                  <Text style={styles.subtitle}>Kosakata Hari Ini</Text>
+                  <Text style={styles.subtitle}>Kata Kata Hari Ini</Text>
 
                   <View style={styles.wordCard}>
                     <View style={styles.wordContent}>
-                      <Text style={styles.wordTitle}>Betas</Text>
-                      <Text style={styles.wordMeaning}>Berarti: Orang</Text>
+                      <Text style={styles.wordTitle}>Bujur Banar</Text>
+                      <Text style={styles.wordMeaning}>Berarti: Benar Sekali</Text>
+                      <Text style={styles.languageOrigin}>Bahasa Banjar, Kalimantan Selatan</Text>
                     </View>
                     <View style={styles.wordImageContainer}>
-                      <Text style={styles.largeEmoji}>👫</Text>
+                      <Text style={styles.largeEmoji}>👍</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.nextButton}
-                      onPress={() => navigation.navigate('Translate', { word: 'Betas' })}
+                      onPress={() => navigation.navigate('Translate', { word: 'Bujur Banar' })}
                     >
                       <Text style={styles.nextButtonText}>→</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-
-
               </View>
-            </View>
 
-            {/* Right Column */}
-            <View style={[
-              isDesktop ? styles.columnRight : styles.fullWidth,
-              isTablet && styles.tabletColumn
-            ]}>
-              {/* Cerita Rakyat Pillhan Section */}
+              {/* Eksplorasi Bahasa Section - Visible on all devices */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Cerita Rakyat Pilihan</Text>
-                  {isDesktop && (
-                    <TouchableOpacity>
-                      <Text style={styles.seeMoreText}>Lihat Semua</Text>
+                  <Text style={styles.sectionTitle}>Eksplorasi Bahasa</Text>
+                  <View style={styles.navigationButtons}>
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopBahasaScrollRef.current : bahasaScrollRef.current) {
+                          (isDesktop ? desktopBahasaScrollRef.current : bahasaScrollRef.current)?.scrollTo({ x: 0, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={20} color={Colors.primary} />
                     </TouchableOpacity>
-                  )}
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopBahasaScrollRef.current : bahasaScrollRef.current) {
+                          (isDesktop ? desktopBahasaScrollRef.current : bahasaScrollRef.current)?.scrollTo({ x: 500, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
-                <View style={styles.storyCard}>
-                  <Text style={styles.storyTitle}>Lahirnya Derawan</Text>
-                  <View style={styles.storyImageContainer}>
-                    <Text style={styles.storyIslandEmoji}>🏝️</Text>
-                    <Text style={styles.storyPeopleEmoji}>👫</Text>
+                <ScrollView
+                  ref={isDesktop ? desktopBahasaScrollRef : bahasaScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.priorityScrollContent}
+                >
+                  {/* Word Card 1 - Betas */}
+                  <TouchableOpacity 
+                    style={styles.wordCardItem}
+                    onPress={() => navigation.navigate('Translate', { word: 'Betas' })}
+                  >
+                    <View style={styles.wordCardHeader}>
+                      <Text style={styles.wordCardEmoji}>👫</Text>
+                      <View style={styles.languageBadge}>
+                        <Text style={styles.languageBadgeText}>Berau</Text>
+                      </View>
+                    </View>
+                    <View style={styles.wordCardContent}>
+                      <Text style={styles.wordCardTitle}>Betas</Text>
+                      <Text style={styles.wordCardMeaning}>Orang</Text>
+                      <View style={styles.wordCardLocation}>
+                        <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                        <Text style={styles.wordCardLocationText}>Kalimantan Timur</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Word Card 2 - Nuan */}
+                  <TouchableOpacity 
+                    style={styles.wordCardItem}
+                    onPress={() => navigation.navigate('Translate', { word: 'Nuan' })}
+                  >
+                    <View style={styles.wordCardHeader}>
+                      <Text style={styles.wordCardEmoji}>👆</Text>
+                      <View style={styles.languageBadge}>
+                        <Text style={styles.languageBadgeText}>Dayak</Text>
+                      </View>
+                    </View>
+                    <View style={styles.wordCardContent}>
+                      <Text style={styles.wordCardTitle}>Nuan</Text>
+                      <Text style={styles.wordCardMeaning}>Kamu</Text>
+                      <View style={styles.wordCardLocation}>
+                        <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                        <Text style={styles.wordCardLocationText}>Kalimantan Barat</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Word Card 3 - Bujur */}
+                  <TouchableOpacity 
+                    style={styles.wordCardItem}
+                    onPress={() => navigation.navigate('Translate', { word: 'Bujur' })}
+                  >
+                    <View style={styles.wordCardHeader}>
+                      <Text style={styles.wordCardEmoji}>👍</Text>
+                      <View style={styles.languageBadge}>
+                        <Text style={styles.languageBadgeText}>Banjar</Text>
+                      </View>
+                    </View>
+                    <View style={styles.wordCardContent}>
+                      <Text style={styles.wordCardTitle}>Bujur</Text>
+                      <Text style={styles.wordCardMeaning}>Benar</Text>
+                      <View style={styles.wordCardLocation}>
+                        <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                        <Text style={styles.wordCardLocationText}>Kalimantan Selatan</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+
+              {/* Fun Facts Kaltim Section - Visible on all devices */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Fun Facts Kaltim</Text>
+                  <View style={styles.navigationButtons}>
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopFunFactsScrollRef.current : funFactsScrollRef.current) {
+                          (isDesktop ? desktopFunFactsScrollRef.current : funFactsScrollRef.current)?.scrollTo({ x: 0, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopFunFactsScrollRef.current : funFactsScrollRef.current) {
+                          (isDesktop ? desktopFunFactsScrollRef.current : funFactsScrollRef.current)?.scrollTo({ x: 500, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <ScrollView
+                  ref={isDesktop ? desktopFunFactsScrollRef : funFactsScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.priorityScrollContent}
+                >
+                  {/* Fun Fact 1 */}
+                  <View style={styles.funFactCard}>
+                    <View style={styles.funFactIconContainer}>
+                      <Text style={styles.funFactIcon}>🕌</Text>
+                    </View>
+                    <Text style={styles.funFactText}>
+                      Samarinda memiliki Masjid Islamic Center yang merupakan masjid terbesar kedua di Indonesia setelah Masjid Istiqlal
+                    </Text>
                   </View>
 
-                  <View style={styles.storyInfo}>
-                    <View style={styles.storyInfoItem}>
-                      <Text style={styles.storyInfoIcon}>📍</Text>
-                      <Text style={styles.storyInfoText}>Kalimantan Timur</Text>
+                  {/* Fun Fact 2 */}
+                  <View style={styles.funFactCard}>
+                    <View style={styles.funFactIconContainer}>
+                      <Text style={styles.funFactIcon}>🏞️</Text>
                     </View>
-                    <View style={styles.storyInfoItem}>
-                      <Text style={styles.storyInfoIcon}>⏱️</Text>
-                      <Text style={styles.storyInfoText}>5 menit membaca</Text>
-                    </View>
+                    <Text style={styles.funFactText}>
+                      Danau Labuan Cermin di Berau memiliki fenomena unik dimana airnya terdiri dari lapisan air tawar dan air asin
+                    </Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.storyButton}
+                  {/* Fun Fact 3 */}
+                  <View style={styles.funFactCard}>
+                    <View style={styles.funFactIconContainer}>
+                      <Text style={styles.funFactIcon}>👑</Text>
+                    </View>
+                    <Text style={styles.funFactText}>
+                      Kutai Kartanegara adalah kerajaan tertua di Indonesia, berdiri sejak abad ke-4 Masehi
+                    </Text>
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* Cerita Rakyat Section - Visible on all devices */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Cerita Rakyat</Text>
+                  <View style={styles.navigationButtons}>
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopCeritaScrollRef.current : ceritaScrollRef.current) {
+                          (isDesktop ? desktopCeritaScrollRef.current : ceritaScrollRef.current)?.scrollTo({ x: 0, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-back" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.navButton}
+                      onPress={() => {
+                        if (isDesktop ? desktopCeritaScrollRef.current : ceritaScrollRef.current) {
+                          (isDesktop ? desktopCeritaScrollRef.current : ceritaScrollRef.current)?.scrollTo({ x: 500, animated: true });
+                        }
+                      }}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <ScrollView
+                  ref={isDesktop ? desktopCeritaScrollRef : ceritaScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.priorityScrollContent}
+                >
+                  {/* Story Card 1 */}
+                  <TouchableOpacity 
+                    style={styles.storyCardItem}
                     onPress={() => navigation.navigate('Stories', { storyId: '1' })}
                   >
-                    <Text style={styles.storyButtonText}>Baca Cerita</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Quiz Pilihan Section */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Quiz Untukmu</Text>
-                  {isDesktop && (
-                    <TouchableOpacity>
-                      <Text style={styles.seeMoreText}>Lihat Semua</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={styles.storyCard}>
-                  <Text style={styles.storyTitle}>Quiz Pilihan</Text>
-                  <View style={styles.storyImageContainer}>
-                    <Text style={styles.storyIslandEmoji}>🏝️</Text>
-                    <Text style={styles.storyPeopleEmoji}>👫</Text>
-                  </View>
-
-                  <View style={styles.storyInfo}>
-                    <View style={styles.storyInfoItem}>
-                      <Text style={styles.storyInfoIcon}>📍</Text>
-                      <Text style={styles.storyInfoText}>Kalimantan Timur</Text>
+                    <View style={styles.storyCardImageContainer}>
+                      <Text style={styles.storyCardEmoji}>🏝️</Text>
                     </View>
-                    <View style={styles.storyInfoItem}>
-                      <Text style={styles.storyInfoIcon}>⏱️</Text>
-                      <Text style={styles.storyInfoText}>5 menit membaca</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity style={styles.storyButton}>
-                    <Text style={styles.storyButtonText}>Baca Cerita</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Popular Destinations - For Desktop Only */}
-              {isDesktop && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Destinasi Populer</Text>
-                    <TouchableOpacity>
-                      <Text style={styles.seeMoreText}>Lihat Semua</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.destinationsGrid}>
-                    {popularDestinations.map((destination) => (
-                      <TouchableOpacity key={destination.id} style={styles.destinationCard}>
-                        <View style={styles.destinationImageContainer}>
-                          <Text style={styles.destinationEmoji}>{destination.emoji}</Text>
+                    <View style={styles.storyCardContent}>
+                      <Text style={styles.storyCardTitle}>Lahirnya Derawan</Text>
+                      <View style={styles.storyCardMeta}>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>Kalimantan Timur</Text>
                         </View>
-                        <View style={styles.destinationInfo}>
-                          <Text style={styles.destinationName}>{destination.name}</Text>
-                          <Text style={styles.destinationLocation}>{destination.location}</Text>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="time-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>5 menit</Text>
                         </View>
+                      </View>
+                      <TouchableOpacity style={styles.readButton}>
+                        <Text style={styles.readButtonText}>Baca Cerita</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Story Card 2 */}
+                  <TouchableOpacity 
+                    style={styles.storyCardItem}
+                    onPress={() => navigation.navigate('Stories', { storyId: '2' })}
+                  >
+                    <View style={styles.storyCardImageContainer}>
+                      <Text style={styles.storyCardEmoji}>🌊</Text>
+                    </View>
+                    <View style={styles.storyCardContent}>
+                      <Text style={styles.storyCardTitle}>Asal Usul Sungai Mahakam</Text>
+                      <View style={styles.storyCardMeta}>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>Kalimantan Timur</Text>
+                        </View>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="time-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>8 menit</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity style={styles.readButton}>
+                        <Text style={styles.readButtonText}>Baca Cerita</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Story Card 3 */}
+                  <TouchableOpacity 
+                    style={styles.storyCardItem}
+                    onPress={() => navigation.navigate('Stories', { storyId: '4' })}
+                  >
+                    <View style={styles.storyCardImageContainer}>
+                      <Text style={styles.storyCardEmoji}>👸</Text>
+                    </View>
+                    <View style={styles.storyCardContent}>
+                      <Text style={styles.storyCardTitle}>Putri Junjung Buih</Text>
+                      <View style={styles.storyCardMeta}>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>Kalimantan Selatan</Text>
+                        </View>
+                        <View style={styles.storyCardMetaItem}>
+                          <Ionicons name="time-outline" size={14} color={Colors.primary} />
+                          <Text style={styles.storyCardMetaText}>7 menit</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity style={styles.readButton}>
+                        <Text style={styles.readButtonText}>Baca Cerita</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
             </View>
           </View>
 
@@ -720,7 +1060,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   contentContainer: {
-    paddingBottom: 80, // Add extra padding for tab bar
+    paddingBottom: 20, // Add extra padding for tab bar
   },
   mainContainer: {
     padding: 16,
@@ -833,11 +1173,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
   },
   accountAvatarText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.primary,
+    textAlign: 'center',
   },
   accountName: {
     fontSize: 14,
@@ -897,7 +1239,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + '10', // 10% opacity
     borderRadius: 16,
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 12,
     overflow: 'hidden',
     maxWidth: 1200,
     alignSelf: 'center',
@@ -970,7 +1312,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -983,10 +1325,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
     color: Colors.text,
+    marginTop: 12,
   },
-  seeMoreText: {
-    color: Colors.primary,
-    fontWeight: 'bold',
+  navigationButtons: {
+    flexDirection: 'row',
+  },
+  navButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${Colors.primary}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  languageOrigin: {
+    fontSize: 12,
+    color: Colors.lightText,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   contentCard: {
     backgroundColor: 'white',
@@ -1002,7 +1359,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     color: Colors.text,
   },
   wordCard: {
@@ -1102,7 +1459,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   searchBarContainer: {
-    marginBottom: 24,
+    marginBottom: 12,
     width: '100%',
   },
   contributionBanner: {
@@ -1287,7 +1644,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 24,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1302,7 +1659,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   footer: {
-    marginTop: 24,
+    marginTop: 12,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
@@ -1345,14 +1702,14 @@ const styles = StyleSheet.create({
     color: Colors.lightText,
     marginBottom: 4,
   },
-  mobileMenuWrapper: {
+  mobileMenuContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 999,
+    zIndex: 1000,
   },
   mobileMenuBackdrop: {
     position: 'absolute',
@@ -1361,74 +1718,49 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  mobileMenuCloseButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    padding: 8,
-    zIndex: 1001,
-  },
   mobileMenu: {
     position: 'absolute',
-    top: 50,
-    left: 0,
+    top: 0,
     right: 0,
+    width: 280,
+    height: '100%',
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    margin: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
     zIndex: 1000,
   },
-  mobileMenuItem: {
+  mobileMenuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 12,
   },
-  mobileMenuItemText: {
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary + '30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: Colors.text,
   },
-  mobileMenuIcon: {
-    marginRight: 12,
-    width: 24,
-    textAlign: 'center',
-  },
-  mobileMenuButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  mobileLoginButton: {
-    flex: 1,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  mobileLoginButtonText: {
-    color: Colors.primary,
-    fontWeight: 'bold',
-  },
-  mobileRegisterButton: {
-    flex: 1,
-    padding: 12,
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  mobileRegisterButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  userEmail: {
+    fontSize: 12,
+    color: Colors.lightText,
   },
   mobileMenuButton: {
     padding: 8,
@@ -1545,5 +1877,327 @@ const styles = StyleSheet.create({
   destinationLocation: {
     fontSize: 12,
     color: Colors.lightText,
+  },
+  
+  // Login prompt modal styles
+  loginPromptContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginPromptContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  loginPromptTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  loginPromptDescription: {
+    fontSize: 16,
+    color: Colors.lightText,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  loginPromptButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  loginPromptLoginButton: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  loginPromptLoginText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loginPromptRegisterButton: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  loginPromptRegisterText: {
+    color: Colors.text,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loginPromptCloseButton: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  loginPromptCloseText: {
+    color: Colors.lightText,
+    fontSize: 14,
+  },
+  
+  // Avatar styles
+  smallAvatarContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallAvatarText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  priorityScrollContent: {
+    // paddingLeft: 16,
+    paddingRight: 8,
+  },
+  regionCard: {
+    width: 250,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginRight: 12,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  regionImageContainer: {
+    height: 130,
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  regionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  regionContent: {
+    padding: 12,
+  },
+  regionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: Colors.text,
+  },
+  regionDetails: {
+    marginBottom: 12,
+  },
+  regionDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  regionDetailIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  regionDetailText: {
+    fontSize: 13,
+    color: Colors.lightText,
+  },
+  exploreButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  
+  // Word Card Styles
+  wordCardItem: {
+    width: 180,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginRight: 12,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  wordCardHeader: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  wordCardEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  languageBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  languageBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  wordCardContent: {
+    padding: 12,
+  },
+  wordCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: Colors.text,
+  },
+  wordCardMeaning: {
+    fontSize: 14,
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  wordCardLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  wordCardLocationText: {
+    fontSize: 12,
+    color: Colors.lightText,
+    marginLeft: 4,
+  },
+  
+  // Fun Fact Styles
+  funFactCard: {
+    width: 230,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginRight: 12,
+    padding: 16,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    minHeight: 180,
+  },
+  funFactIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF8E1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  funFactIcon: {
+    fontSize: 24,
+  },
+  funFactText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.text,
+  },
+  
+  // Story Card Styles
+  storyCardItem: {
+    width: 250,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginRight: 12,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  storyCardImageContainer: {
+    height: 120,
+    width: '100%',
+    backgroundColor: '#E0F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyCardEmoji: {
+    fontSize: 40,
+  },
+  storyCardContent: {
+    padding: 12,
+  },
+  storyCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: Colors.text,
+  },
+  storyCardMeta: {
+    marginBottom: 12,
+  },
+  storyCardMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  storyCardMetaText: {
+    fontSize: 12,
+    color: Colors.lightText,
+    marginLeft: 4,
+  },
+  readButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  readButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  // Add new styles for desktop layout
+  desktopSubSection: {
+    marginBottom: 20,
+  },
+  desktopSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  desktopSubSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  desktopRowLayout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
   },
 }); 
